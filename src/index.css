@@ -1,0 +1,159 @@
+@import './styles/variables.css';
+
+/* Document Preview Styles */
+.docx-content p {
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.docx-content b,
+.docx-content strong {
+  font-weight: bold;
+}
+
+.docx-content i,
+.docx-content em {
+  font-style: italic;
+}
+
+.docx-content .docx-header {
+  font-size: 0.9rem;
+  color: #666;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+}
+
+.docx-content .docx-footer {
+  font-size: 0.8rem;
+  color: #888;
+  border-top: 1px solid #ddd;
+  margin-top: 2rem;
+  padding-top: 0.5rem;
+}
+
+.docx-content h1,
+.docx-content h2,
+.docx-content h3 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--text);
+}
+
+.docx-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+}
+
+.docx-content td,
+.docx-content th {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+.docx-content ul,
+.docx-content ol {
+  margin-left: 2rem;
+  margin-bottom: 1rem;
+}
+
+/* Utility classes */
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-md {
+  gap: var(--spacing-md);
+}
+
+.p-md {
+  padding: var(--spacing-md);
+}
+
+.text-sm {
+  font-size: 0.875rem;
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.card {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  padding: var(--spacing-lg);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-outline {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+.btn-outline:hover {
+  background: var(--background);
+  color: var(--text-main);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
