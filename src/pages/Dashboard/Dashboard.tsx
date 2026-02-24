@@ -7,7 +7,7 @@ const Dashboard = () => {
     const stats = [
         { label: 'Contratos Activos', value: contracts.length, icon: FileText, color: 'var(--primary)' },
         { label: 'Proyectos en Curso', value: projects.length, icon: Briefcase, color: 'var(--success)' },
-        { label: 'Reuniones Pendientes', value: meetings.filter(m => m.status === 'PLANNED').length, icon: Calendar, color: 'var(--warning)' },
+        { label: 'Reuniones Pendientes', value: meetings.filter(m => m.status === 'PROGRAMADA').length, icon: Calendar, color: 'var(--warning)' },
         // { label: 'Usuarios', value: 3, icon: Users, color: 'var(--text-secondary)' }, // Mock count
     ];
 
