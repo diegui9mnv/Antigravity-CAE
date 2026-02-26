@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { User, Project, Contract, ProjectDocument, Signature, DocumentStatus, MeetingStatus, WorkCenter, Meeting, DocumentTemplate } from '../types';
+import api from '../services/api';
 
 interface AppState {
     currentUser: User | null;
@@ -66,99 +67,6 @@ const MOCK_USERS: User[] = [
         contacts: [
             { id: 'contact2', firstName: 'Sofia', lastName: 'Martín', email: 'sofia@company.com', position: 'Técnico', phone: '611223344' }
         ]
-    },
-];
-
-const MOCK_CONTRACTS: Contract[] = [
-    {
-        id: 'c1',
-        code: 'CTR-2024-001',
-        description: 'Mantenimiento General Edificio A',
-        startDate: '2024-01-01',
-        endDate: '2024-12-31',
-        clientName: 'Cliente A S.A.',
-        contactName: 'Pedro Cliente',
-        contactEmail: 'pedro@clientec.com',
-        contactPhone: '555-0101',
-        amount: 50000,
-        coordinatorId: 'u2'
-    },
-    {
-        id: 'c2',
-        code: 'CTR-2024-002',
-        description: 'Reforma Oficinas Centrales',
-        startDate: '2024-03-01',
-        endDate: '2024-06-30',
-        clientName: 'Global Corp',
-        contactName: 'Maria Director',
-        contactEmail: 'maria@global.com',
-        contactPhone: '555-0202',
-        amount: 120000,
-        coordinatorId: 'u2'
-    }
-];
-
-const MOCK_PROJECTS: Project[] = [
-    {
-        id: 'p1',
-        contractId: 'c1',
-        code: 'PRJ-001-A',
-        description: 'Limpieza y Jardinería',
-        startDate: '2024-01-01',
-        endDate: '2024-12-31',
-        workCenterId: 'wc1',
-        managerId: 'u2',
-        companyIds: ['u3'],
-        fechaSolicitud: '2023-12-15',
-        createdAt: '2023-12-15T10:00:00.000Z',
-        contactIds: ['cont-5', 'cont-6'],
-        mainContactId: 'cont-5',
-        contractManagerId: 'cont-6',
-        companyStatus: 'INACTIVA',
-        documentationStatus: 'NO_VERIFICADA'
-    },
-    {
-        id: '2',
-        contractId: '2',
-        code: 'PROJ-002',
-        description: 'Reforma Oficinas Centrales',
-        startDate: '2024-02-01',
-        endDate: '2024-08-31',
-        workCenterId: 'wc-2',
-        managerId: '2',
-        companyIds: ['3'],
-        fechaSolicitud: '2024-01-10',
-        createdAt: '2024-01-10T09:30:00.000Z',
-        contactIds: ['cont-3', 'cont-4'],
-        mainContactId: 'cont-3',
-        contractManagerId: 'cont-4',
-        companyStatus: 'INACTIVA',
-        documentationStatus: 'NO_VERIFICADA'
-    }
-];
-
-const MOCK_WORK_CENTERS: WorkCenter[] = [
-    {
-        id: 'wc1',
-        name: 'Embalse de la Viñuela',
-        type: 'EMBALSE',
-        address: 'Ctra. de la Viñuela, s/n',
-        zipCode: '29712',
-        phone: '951000000',
-        province: 'MÁLAGA',
-        riskInfoUrl: '#',
-        riskInfoFileName: 'riesgos_vinuela.pdf'
-    },
-    {
-        id: 'wc2',
-        name: 'Oficina Central Málaga',
-        type: 'OFICINA',
-        address: 'Calle Marqués de Larios, 1',
-        zipCode: '29005',
-        phone: '952000000',
-        province: 'MÁLAGA',
-        riskInfoUrl: '#',
-        riskInfoFileName: 'riesgos_oficina.pdf'
     }
 ];
 
@@ -179,7 +87,6 @@ function usePersistedState<T>(key: string, defaultValue: T) {
             localStorage.setItem(key, JSON.stringify(state));
         } catch (error) {
             console.error(`Error writing ${key} to localStorage. Quota might be exceeded:`, error);
-            // Optionally, we could show an alert to the user if the quota is exceeded.
         }
     }, [key, state]);
 
@@ -204,14 +111,43 @@ function usePersistedState<T>(key: string, defaultValue: T) {
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [currentUser, setCurrentUser] = usePersistedState<User | null>('currentUser', null);
     const [users, setUsers] = usePersistedState<User[]>('users', MOCK_USERS);
-    const [contracts, setContracts] = usePersistedState<Contract[]>('contracts', MOCK_CONTRACTS);
-    const [projects, setProjects] = usePersistedState<Project[]>('projects', MOCK_PROJECTS);
-    // Initialize documents from local storage or empty array
-    const [documents, setDocuments] = usePersistedState<ProjectDocument[]>('documents', []);
-    const [meetings, setMeetings] = usePersistedState<Meeting[]>('meetings', []);
-    const [workCenters, setWorkCenters] = usePersistedState<WorkCenter[]>('workCenters', MOCK_WORK_CENTERS);
-    const [templates, setTemplates] = usePersistedState<DocumentTemplate[]>('templates', []);
+    const [contracts, setContracts] = useState<Contract[]>([]);
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [documents, setDocuments] = useState<ProjectDocument[]>([]);
+    const [meetings, setMeetings] = useState<Meeting[]>([]);
+    const [workCenters, setWorkCenters] = useState<WorkCenter[]>([]);
+    const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
     const [headerActions, setHeaderActions] = useState<React.ReactNode | null>(null);
+
+    // Initial Fetch for Work Centers, Contracts and Templates from Django API
+    useEffect(() => {
+        // We only want to fetch if the user is authenticated (we have a token)
+        if (localStorage.getItem('access_token')) {
+            api.get('/workcenters/')
+                .then(response => setWorkCenters(response.data))
+                .catch(err => console.error("Error fetching work centers:", err));
+
+            api.get('/contracts/')
+                .then(response => setContracts(response.data))
+                .catch(err => console.error("Error fetching contracts:", err));
+
+            api.get('/templates/')
+                .then(response => setTemplates(response.data))
+                .catch(err => console.error("Error fetching templates:", err));
+
+            api.get('/projects/')
+                .then(response => setProjects(response.data))
+                .catch(err => console.error("Error fetching projects:", err));
+
+            api.get('/documents/')
+                .then(response => setDocuments(response.data))
+                .catch(err => console.error("Error fetching documents:", err));
+
+            api.get('/meetings/')
+                .then(response => setMeetings(response.data))
+                .catch(err => console.error("Error fetching meetings:", err));
+        }
+    }, [currentUser]); // Re-fetch when user logs in
 
     // Normalize data: Ensure all items have necessary arrays if they were created before multi-signature support
     React.useEffect(() => {
@@ -315,91 +251,263 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updateUser = (user: User) => setUsers(users.map(u => u.id === user.id ? user : u));
     const deleteUser = (id: string) => setUsers(users.filter(u => u.id !== id));
 
-    const addContract = (contract: Contract) => setContracts([...contracts, contract]);
-    const updateContract = (contract: Contract) => setContracts(contracts.map(c => c.id === contract.id ? contract : c));
-    const deleteContract = (id: string) => setContracts(contracts.filter(c => c.id !== id));
-
-    const addProject = async (project: Project) => {
-        const timestamp = new Date().toISOString();
-        const newProject = { ...project, id: project.id || Math.random().toString(36).substr(2, 9), createdAt: timestamp };
-
-        setProjects(prev => [...prev, newProject]);
-
-        // Automatically create initial documents from all available templates
-        const initialDocs: ProjectDocument[] = templates.map(template => ({
-            id: Math.random().toString(36).substr(2, 9),
-            projectId: newProject.id,
-            name: template.fileName,
-            url: template.fileData,
-            status: 'BORRADOR',
-            category: template.category,
-            uploadedBy: currentUser?.id || 'system',
-            uploadedAt: timestamp,
-            signatures: []
-        }));
-
-        setDocuments(prev => [...prev, ...initialDocs]);
-    };
-    const updateProject = (project: Project) => setProjects(projects.map(p => p.id === project.id ? project : p));
-    const deleteProject = (id: string) => setProjects(projects.filter(p => p.id !== id));
-
-    const addDocument = (doc: ProjectDocument) => setDocuments(prev => [...prev, { ...doc, signatures: doc.signatures || [] }]);
-
-    const addDocumentSignature = (id: string, signature: Signature) =>
-        setDocuments(documents.map(d => d.id === id ? {
-            ...d,
-            signatures: [...(d.signatures || []), signature],
-            statusDate: new Date().toISOString(),
-            status: 'ACEPTADO'
-        } : d));
-
-    const updateDocumentStatus = (id: string, status: ProjectDocument['status']) =>
-        setDocuments(documents.map(d => d.id === id ? {
-            ...d,
-            status,
-            statusDate: new Date().toISOString(),
-        } : d));
-
-    const updateDocumentUrl = (id: string, url: string) =>
-        setDocuments(documents.map(d => d.id === id ? { ...d, url } : d));
-
-    const deleteDocument = (id: string) => setDocuments(documents.filter(d => d.id !== id));
-
-    const addMeeting = (meeting: Meeting) => {
-        setMeetings([...meetings, { ...meeting, signatures: [] }]);
-
-        // Mock email notification
-        const project = projects.find(p => p.id === meeting.projectId);
-        if (project) {
-            const assignedCompanies = project.companyIds.map(cid => users.find(u => u.id === cid)).filter(Boolean);
-            const allContacts = assignedCompanies.flatMap(c => c?.contacts || []);
-            const recipients = allContacts.filter(c => c.id === project.mainContactId || c.id === project.contractManagerId);
-
-            if (recipients.length > 0) {
-                console.log('%c[SIMULACIÓN EMAIL]', 'color: #4f46e5; font-weight: bold;');
-                console.log(`Para: ${recipients.map(r => `${r.firstName} <${r.email}>`).join(', ')}`);
-                console.log(`Asunto: Nueva Reunión programada - ${project.code}`);
-                console.log(`Cuerpo: Se ha programado una nueva reunión "${meeting.reason}" para el día ${meeting.startDate} a las ${meeting.time}. Lugar: ${meeting.location}${meeting.type === 'ONLINE' ? ` (Enlace: ${meeting.teamsLink})` : ''}.`);
-                console.log('---------------------------');
-            }
+    const addContract = async (contract: Contract) => {
+        try {
+            const dataToSubmit = { ...contract };
+            if (dataToSubmit.id && String(dataToSubmit.id).includes('temp')) delete (dataToSubmit as any).id;
+            const response = await api.post('/contracts/', dataToSubmit);
+            setContracts([...contracts, response.data]);
+        } catch (error) {
+            console.error("Error adding contract:", error);
         }
     };
 
-    const updateMeeting = (meeting: Meeting) => setMeetings(meetings.map(m => m.id === meeting.id ? meeting : m));
+    const updateContract = async (contract: Contract) => {
+        try {
+            const response = await api.put(`/contracts/${contract.id}/`, contract);
+            setContracts(contracts.map(c => c.id === contract.id ? response.data : c));
+        } catch (error) {
+            console.error("Error updating contract:", error);
+        }
+    };
 
-    const addMeetingSignature = (id: string, signature: Signature) =>
-        setMeetings(meetings.map(m => m.id === id ? {
-            ...m,
-            signatures: [...(m.signatures || []), signature]
-        } : m));
+    const deleteContract = async (id: string) => {
+        try {
+            await api.delete(`/contracts/${id}/`);
+            setContracts(contracts.filter(c => c.id !== id));
+        } catch (error) {
+            console.error("Error deleting contract:", error);
+        }
+    };
 
-    const addWorkCenter = (workCenter: WorkCenter) => setWorkCenters([...workCenters, workCenter]);
-    const updateWorkCenter = (workCenter: WorkCenter) => setWorkCenters(workCenters.map(wc => wc.id === workCenter.id ? workCenter : wc));
-    const deleteWorkCenter = (id: string) => setWorkCenters(workCenters.filter(wc => wc.id !== id));
+    const addProject = async (project: Project) => {
+        try {
+            const dataToSubmit = { ...project };
+            if (dataToSubmit.id && String(dataToSubmit.id).includes('temp')) delete (dataToSubmit as any).id;
 
-    const addTemplate = (template: DocumentTemplate) => setTemplates([...templates, template]);
-    const updateTemplate = (template: DocumentTemplate) => setTemplates(templates.map(t => t.id === template.id ? template : t));
-    const deleteTemplate = (id: string) => setTemplates(templates.filter(t => t.id !== id));
+            // Format data for Django backend. The backend expects primary keys for relationships in write operations.
+            // Our frontend uses names like contractId, workCenterId, managerId which match what Django expects
+            // for foreign keys when using standard ModelViewSets (assuming field names are just 'contract', etc,
+            // Django REST Framework generally accepts '<fieldname>_id' automatically, and camel_case parser translates it).
+
+            const response = await api.post('/projects/', dataToSubmit);
+            const newProject = response.data;
+            setProjects([...projects, newProject]);
+
+            // Automatically create initial documents from all available templates
+            const initialDocsToCreate = templates.map(template => ({
+                projectId: newProject.id,
+                name: template.fileName,
+                url: template.fileData,
+                status: 'BORRADOR',
+                category: template.category,
+                uploadedBy: currentUser?.id || null,
+                signatures: []
+            }));
+
+            // Since we're refactoring sequentially, we assume documents will be moved to API next,
+            // but for now we create logic to hit the Document endpoint
+            for (const docData of initialDocsToCreate) {
+                try {
+                    const docResp = await api.post('/documents/', docData);
+                    setDocuments(prev => [...prev, docResp.data]);
+                } catch (e) {
+                    console.error("Error auto-creating document from template:", e);
+                }
+            }
+        } catch (error: any) {
+            console.error("Error adding project:", error);
+            if (error.response) console.error(error.response.data);
+        }
+    };
+
+    const updateProject = async (project: Project) => {
+        try {
+            const response = await api.put(`/projects/${project.id}/`, project);
+            setProjects(projects.map(p => p.id === project.id ? response.data : p));
+        } catch (error) {
+            console.error("Error updating project:", error);
+        }
+    };
+
+    const deleteProject = async (id: string) => {
+        try {
+            await api.delete(`/projects/${id}/`);
+            setProjects(projects.filter(p => p.id !== id));
+        } catch (error) {
+            console.error("Error deleting project:", error);
+        }
+    };
+
+    const addDocument = async (doc: ProjectDocument) => {
+        try {
+            const dataToSubmit = { ...doc };
+            if (dataToSubmit.id && String(dataToSubmit.id).includes('temp')) delete (dataToSubmit as any).id;
+
+            const response = await api.post('/documents/', dataToSubmit);
+            setDocuments(prev => [...prev, response.data]);
+        } catch (e) {
+            console.error("Error adding document:", e);
+        }
+    };
+
+    const addDocumentSignature = async (id: string, signature: Signature) => {
+        try {
+            const doc = documents.find(d => d.id === id);
+            if (!doc) return;
+            const updatedSignatures = [...(doc.signatures || []), signature];
+            const response = await api.patch(`/documents/${id}/`, {
+                signatures: updatedSignatures,
+                statusDate: new Date().toISOString(),
+                status: 'ACEPTADO'
+            });
+            setDocuments(documents.map(d => d.id === id ? response.data : d));
+        } catch (error) {
+            console.error("Error signing document:", error);
+        }
+    };
+
+    const updateDocumentStatus = async (id: string, status: ProjectDocument['status']) => {
+        try {
+            const response = await api.patch(`/documents/${id}/`, {
+                status,
+                statusDate: new Date().toISOString()
+            });
+            setDocuments(documents.map(d => d.id === id ? response.data : d));
+        } catch (error) {
+            console.error("Error updating document status:", error);
+        }
+    };
+
+    const updateDocumentUrl = async (id: string, url: string) => {
+        try {
+            const response = await api.patch(`/documents/${id}/`, { url });
+            setDocuments(documents.map(d => d.id === id ? response.data : d));
+        } catch (error) {
+            console.error("Error updating document URL:", error);
+        }
+    };
+
+    const deleteDocument = async (id: string) => {
+        try {
+            await api.delete(`/documents/${id}/`);
+            setDocuments(documents.filter(d => d.id !== id));
+        } catch (error) {
+            console.error("Error deleting document:", error);
+        }
+    };
+
+    const addMeeting = async (meeting: Meeting) => {
+        try {
+            const dataToSubmit = { ...meeting };
+            if (dataToSubmit.id && String(dataToSubmit.id).includes('temp')) delete (dataToSubmit as any).id;
+
+            const response = await api.post('/meetings/', dataToSubmit);
+            setMeetings([...meetings, response.data]);
+
+            // Mock email notification
+            const project = projects.find(p => p.id === meeting.projectId);
+            if (project) {
+                const assignedCompanies = project.companyIds.map(cid => users.find(u => u.id === cid)).filter(Boolean);
+                const allContacts = assignedCompanies.flatMap(c => c?.contacts || []);
+                const recipients = allContacts.filter(c => c.id === project.mainContactId || c.id === project.contractManagerId);
+
+                if (recipients.length > 0) {
+                    console.log('%c[SIMULACIÓN EMAIL]', 'color: #4f46e5; font-weight: bold;');
+                    console.log(`Para: ${recipients.map(r => `${r.firstName} <${r.email}>`).join(', ')}`);
+                    console.log(`Asunto: Nueva Reunión programada - ${project.code}`);
+                    console.log(`Cuerpo: Se ha programado una nueva reunión "${meeting.reason}" para el día ${meeting.startDate} a las ${meeting.time}. Lugar: ${meeting.location}${meeting.type === 'ONLINE' ? ` (Enlace: ${meeting.teamsLink})` : ''}.`);
+                    console.log('---------------------------');
+                }
+            }
+        } catch (error) {
+            console.error("Error adding meeting:", error);
+        }
+    };
+
+    const updateMeeting = async (meeting: Meeting) => {
+        try {
+            const response = await api.put(`/meetings/${meeting.id}/`, meeting);
+            setMeetings(meetings.map(m => m.id === meeting.id ? response.data : m));
+        } catch (error) {
+            console.error("Error updating meeting:", error);
+        }
+    };
+
+    const addMeetingSignature = async (id: string, signature: Signature) => {
+        try {
+            const meeting = meetings.find(m => m.id === id);
+            if (!meeting) return;
+            const updatedSignatures = [...(meeting.signatures || []), signature];
+            const response = await api.patch(`/meetings/${id}/`, { signatures: updatedSignatures });
+            setMeetings(meetings.map(m => m.id === id ? response.data : m));
+        } catch (error) {
+            console.error("Error signing meeting:", error);
+        }
+    };
+
+    const addWorkCenter = async (workCenter: WorkCenter) => {
+        try {
+            // Remove the ID if it's a temporary client-side ID so Django can auto-generate it
+            const dataToSubmit = { ...workCenter };
+            if (dataToSubmit.id && String(dataToSubmit.id).includes('temp')) {
+                delete (dataToSubmit as any).id;
+            }
+
+            const response = await api.post('/workcenters/', dataToSubmit);
+            setWorkCenters([...workCenters, response.data]);
+        } catch (error) {
+            console.error("Error adding work center:", error);
+            // Revert state or show error in a real app
+        }
+    };
+
+    const updateWorkCenter = async (workCenter: WorkCenter) => {
+        try {
+            const response = await api.put(`/workcenters/${workCenter.id}/`, workCenter);
+            setWorkCenters(workCenters.map(wc => wc.id === workCenter.id ? response.data : wc));
+        } catch (error) {
+            console.error("Error updating work center:", error);
+        }
+    };
+
+    const deleteWorkCenter = async (id: string) => {
+        try {
+            await api.delete(`/workcenters/${id}/`);
+            setWorkCenters(workCenters.filter(wc => wc.id !== id));
+        } catch (error) {
+            console.error("Error deleting work center:", error);
+        }
+    };
+
+    const addTemplate = async (template: DocumentTemplate) => {
+        try {
+            const dataToSubmit = { ...template };
+            if (dataToSubmit.id && String(dataToSubmit.id).includes('temp')) delete (dataToSubmit as any).id;
+            const response = await api.post('/templates/', dataToSubmit);
+            setTemplates([...templates, response.data]);
+        } catch (error) {
+            console.error("Error adding template:", error);
+        }
+    };
+
+    const updateTemplate = async (template: DocumentTemplate) => {
+        try {
+            const response = await api.put(`/templates/${template.id}/`, template);
+            setTemplates(templates.map(t => t.id === template.id ? response.data : t));
+        } catch (error) {
+            console.error("Error updating template:", error);
+        }
+    };
+
+    const deleteTemplate = async (id: string) => {
+        try {
+            await api.delete(`/templates/${id}/`);
+            setTemplates(templates.filter(t => t.id !== id));
+        } catch (error) {
+            console.error("Error deleting template:", error);
+        }
+    };
 
     return (
         <AppContext.Provider value={{

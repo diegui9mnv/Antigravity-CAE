@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@types/file-saver": "^2.0.7",
+    "axios": "^1.13.5",
     "docxtemplater": "^3.68.2",
     "file-saver": "^2.0.5",
     "html2canvas": "^1.4.1",
