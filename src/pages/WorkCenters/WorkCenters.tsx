@@ -185,14 +185,38 @@ const WorkCenters = () => {
                                 <span style={{ fontSize: '0.85rem', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {wc.riskInfoFileName}
                                 </span>
-                                <a
-                                    href={wc.riskInfoUrl}
-                                    style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}
-                                    target="_blank"
-                                    rel="noreferrer"
+                                <button
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        if (wc.riskInfoUrl?.startsWith('data:')) {
+                                            const parts = wc.riskInfoUrl.split(';base64,');
+                                            const contentType = parts[0].split(':')[1];
+                                            const raw = window.atob(parts[1]);
+                                            const rawLength = raw.length;
+                                            const uInt8Array = new Uint8Array(rawLength);
+                                            for (let i = 0; i < rawLength; ++i) {
+                                                uInt8Array[i] = raw.charCodeAt(i);
+                                            }
+                                            const blob = new Blob([uInt8Array], { type: contentType });
+                                            const url = URL.createObjectURL(blob);
+                                            window.open(url, '_blank');
+                                            setTimeout(() => URL.revokeObjectURL(url), 1000);
+                                        } else if (wc.riskInfoUrl) {
+                                            window.open(wc.riskInfoUrl, '_blank');
+                                        }
+                                    }}
+                                    style={{
+                                        fontSize: '0.8rem',
+                                        color: 'var(--primary)',
+                                        fontWeight: 600,
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        padding: 0
+                                    }}
                                 >
                                     Ver
-                                </a>
+                                </button>
                             </div>
                         )}
                     </div>

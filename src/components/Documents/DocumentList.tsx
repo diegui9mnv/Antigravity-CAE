@@ -15,7 +15,7 @@ const DocumentList: React.FC<DocumentListProps> = ({ projectId }) => {
     const [dragOverCategory, setDragOverCategory] = React.useState<string | null>(null);
 
     const project = projects.find(p => p.id === projectId);
-    const workCenter = workCenters.find(wc => wc.id === project?.workCenterId);
+    const workCenter = workCenters.find(wc => String(wc.id) === String(project?.workCenterId));
     const projectDocs = documents.filter(d => d.projectId === projectId);
     const isCoordinator = currentUser?.role === 'COORDINATOR';
     const isManager = currentUser?.role === 'MANAGER';
@@ -179,16 +179,32 @@ const DocumentList: React.FC<DocumentListProps> = ({ projectId }) => {
                                                     <div className="text-xs text-secondary">Centro: {workCenter.name}</div>
                                                 </div>
                                             </div>
-                                            <a
-                                                href={workCenter.riskInfoUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    if (workCenter.riskInfoUrl?.startsWith('data:')) {
+                                                        const parts = workCenter.riskInfoUrl.split(';base64,');
+                                                        const contentType = parts[0].split(':')[1];
+                                                        const raw = window.atob(parts[1]);
+                                                        const rawLength = raw.length;
+                                                        const uInt8Array = new Uint8Array(rawLength);
+                                                        for (let i = 0; i < rawLength; ++i) {
+                                                            uInt8Array[i] = raw.charCodeAt(i);
+                                                        }
+                                                        const blob = new Blob([uInt8Array], { type: contentType });
+                                                        const url = URL.createObjectURL(blob);
+                                                        window.open(url, '_blank');
+                                                        setTimeout(() => URL.revokeObjectURL(url), 1000);
+                                                    } else if (workCenter.riskInfoUrl) {
+                                                        window.open(workCenter.riskInfoUrl, '_blank');
+                                                    }
+                                                }}
                                                 className="btn btn-sm btn-outline"
                                                 style={{ padding: '0.4rem' }}
                                                 title="Ver documento original"
                                             >
                                                 <ExternalLink size={14} />
-                                            </a>
+                                            </button>
                                         </div>
                                     ) : (
                                         <div className="text-sm text-secondary italic p-4 text-center">
@@ -286,16 +302,10 @@ const DocumentList: React.FC<DocumentListProps> = ({ projectId }) => {
                                                     }
                                                     const blob = new Blob([uInt8Array], { type: contentType });
                                                     const url = URL.createObjectURL(blob);
-                                                    const link = document.createElement('a');
-                                                    link.href = url;
-                                                    link.download = doc.name.endsWith('.docx') ? doc.name : `${doc.name}.docx`;
-                                                    link.click();
-                                                    setTimeout(() => URL.revokeObjectURL(url), 100);
+                                                    window.open(url, '_blank');
+                                                    setTimeout(() => URL.revokeObjectURL(url), 1000);
                                                 } else {
-                                                    const link = document.createElement('a');
-                                                    link.href = doc.url;
-                                                    link.download = doc.name;
-                                                    link.click();
+                                                    window.open(doc.url, '_blank');
                                                 }
                                             }}
                                             style={{
@@ -344,23 +354,25 @@ const DocumentList: React.FC<DocumentListProps> = ({ projectId }) => {
                                                     {doc.status}
                                                 </span>
 
-                                                <MeatballMenu
-                                                    items={[
-                                                        { label: 'Ver y Firmar', onClick: () => window.open(`/signing/${doc.id}?type=document`, '_blank', 'width=1200,height=900') },
-                                                        { label: 'Presentar', onClick: () => updateDocumentStatus(doc.id, 'PRESENTADO') },
-                                                        { label: 'Aceptar', onClick: () => updateDocumentStatus(doc.id, 'ACEPTADO') },
-                                                        { label: 'Rechazar', onClick: () => updateDocumentStatus(doc.id, 'RECHAZADO'), variant: 'danger' },
-                                                        ...(isCoordinator ? [{
-                                                            label: 'Eliminar',
-                                                            onClick: () => {
-                                                                if (window.confirm(`¿Estás seguro de que deseas eliminar el documento "${doc.name}"?`)) {
-                                                                    deleteDocument(doc.id);
-                                                                }
-                                                            },
-                                                            variant: 'danger' as const
-                                                        }] : [])
-                                                    ]}
-                                                />
+                                                <div onClick={(e) => e.stopPropagation()}>
+                                                    <MeatballMenu
+                                                        items={[
+                                                            { label: 'Ver y Firmar', onClick: () => window.open(`/signing/${doc.id}?type=document`, '_blank', 'width=1200,height=900') },
+                                                            { label: 'Presentar', onClick: () => updateDocumentStatus(doc.id, 'PRESENTADO') },
+                                                            { label: 'Aceptar', onClick: () => updateDocumentStatus(doc.id, 'ACEPTADO') },
+                                                            { label: 'Rechazar', onClick: () => updateDocumentStatus(doc.id, 'RECHAZADO'), variant: 'danger' },
+                                                            ...((isCoordinator || isManager) ? [{
+                                                                label: 'Eliminar',
+                                                                onClick: () => {
+                                                                    if (window.confirm(`¿Estás seguro de que deseas eliminar el documento "${doc.name}"?`)) {
+                                                                        deleteDocument(doc.id);
+                                                                    }
+                                                                },
+                                                                variant: 'danger' as const
+                                                            }] : [])
+                                                        ]}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     ))

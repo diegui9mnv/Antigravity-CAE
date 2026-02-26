@@ -1,10 +1,10 @@
 from rest_framework import viewsets
 from .models import (
-    User, CompanyContact, Contract, WorkCenter, 
+    User, Company, CompanyContact, Contract, WorkCenter, 
     Project, ProjectDocument, Meeting, DocumentTemplate
 )
 from .serializers import (
-    UserSerializer, CompanyContactSerializer, ContractSerializer, 
+    UserSerializer, CompanySerializer, CompanyContactSerializer, ContractSerializer, 
     WorkCenterSerializer, ProjectSerializer, ProjectDocumentSerializer, 
     MeetingSerializer, DocumentTemplateSerializer
 )
@@ -12,6 +12,10 @@ from .serializers import (
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+class CompanyViewSet(viewsets.ModelViewSet):
+    queryset = Company.objects.all()
+    serializer_class = CompanySerializer
 
 class CompanyContactViewSet(viewsets.ModelViewSet):
     queryset = CompanyContact.objects.all()

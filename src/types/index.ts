@@ -1,4 +1,14 @@
-export type Role = 'MANAGER' | 'COORDINATOR' | 'COMPANY';
+export type Role = 'MANAGER' | 'COORDINATOR';
+
+export interface Company {
+    id: string;
+    name: string;
+    cif: string;
+    email: string;
+    phone?: string;
+    avatar?: string;
+    contacts?: CompanyContact[];
+}
 
 export interface CompanyContact {
     id: string;
@@ -7,17 +17,15 @@ export interface CompanyContact {
     email: string;
     position?: string;
     phone?: string;
+    company?: string | Company;
 }
 
 export interface User {
     id: string;
-    name: string; // Used as Razón Social for companies
+    name: string;
     email: string;
     role: Role;
     avatar?: string;
-    phone?: string; // For companies
-    cif?: string;   // For companies
-    contacts?: CompanyContact[]; // For companies
 }
 
 export interface Contract {

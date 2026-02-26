@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import (
-    User, CompanyContact, Contract, WorkCenter, 
+    User, Company, CompanyContact, Contract, WorkCenter, 
     Project, ProjectDocument, Meeting, DocumentTemplate
 )
 
@@ -12,6 +12,11 @@ class CustomUserAdmin(UserAdmin):
     )
     list_display = ('email', 'name', 'role', 'is_staff')
     search_fields = ('email', 'name', 'cif')
+
+@admin.register(Company)
+class CompanyAdmin(admin.ModelAdmin):
+    list_display = ('name', 'cif', 'email', 'phone')
+    search_fields = ('name', 'cif', 'email')
 
 @admin.register(CompanyContact)
 class CompanyContactAdmin(admin.ModelAdmin):

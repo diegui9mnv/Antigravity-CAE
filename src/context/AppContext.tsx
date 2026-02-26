@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { User, Project, Contract, ProjectDocument, Signature, DocumentStatus, MeetingStatus, WorkCenter, Meeting, DocumentTemplate } from '../types';
+import type { User, Company, Project, Contract, ProjectDocument, Signature, DocumentStatus, MeetingStatus, WorkCenter, Meeting, DocumentTemplate } from '../types';
 import api from '../services/api';
 
 interface AppState {
     currentUser: User | null;
     users: User[];
+    companies: Company[];
     contracts: Contract[];
     projects: Project[];
     documents: ProjectDocument[];
@@ -12,8 +13,11 @@ interface AppState {
     workCenters: WorkCenter[];
     setCurrentUser: (user: User | null) => void;
     addUser: (user: User) => void;
+    addCompany: (company: Company) => void;
     updateUser: (user: User) => void;
     deleteUser: (id: string) => void;
+    updateCompany: (company: Company) => void;
+    deleteCompany: (id: string) => void;
     // CRUD Operations (Mock)
     addContract: (contract: Contract) => void;
     updateContract: (contract: Contract) => void;
@@ -42,33 +46,6 @@ interface AppState {
 
 const AppContext = createContext<AppState | undefined>(undefined);
 
-// Mock Data
-const MOCK_USERS: User[] = [
-    { id: 'u1', name: 'Juan Gestor', email: 'juan@manager.com', role: 'MANAGER' },
-    { id: 'u2', name: 'Ana Coordinadora', email: 'ana@coordinator.com', role: 'COORDINATOR' },
-    {
-        id: 'u3',
-        name: 'Cliente A S.A.',
-        email: 'carlos@company.com',
-        role: 'COMPANY',
-        phone: '952001122',
-        cif: 'A12345678',
-        contacts: [
-            { id: 'contact1', firstName: 'Carlos', lastName: 'García', email: 'carlos@company.com', position: 'Gerente', phone: '600112233' }
-        ]
-    },
-    {
-        id: 'u4',
-        name: 'Proyectos Sur SL',
-        email: 'sofia@company.com',
-        role: 'COMPANY',
-        phone: '951998877',
-        cif: 'B87654321',
-        contacts: [
-            { id: 'contact2', firstName: 'Sofia', lastName: 'Martín', email: 'sofia@company.com', position: 'Técnico', phone: '611223344' }
-        ]
-    }
-];
 
 // Helper for LocalStorage
 function usePersistedState<T>(key: string, defaultValue: T) {
@@ -110,7 +87,8 @@ function usePersistedState<T>(key: string, defaultValue: T) {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [currentUser, setCurrentUser] = usePersistedState<User | null>('currentUser', null);
-    const [users, setUsers] = usePersistedState<User[]>('users', MOCK_USERS);
+    const [users, setUsers] = useState<User[]>([]);
+    const [companies, setCompanies] = useState<Company[]>([]);
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [documents, setDocuments] = useState<ProjectDocument[]>([]);
@@ -119,10 +97,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
     const [headerActions, setHeaderActions] = useState<React.ReactNode | null>(null);
 
+    // Fetch initial global users (even unauthenticated sometimes for login)
+    useEffect(() => {
+        api.get('/users/')
+            .then(response => setUsers(response.data))
+            .catch(err => console.error("Error fetching users:", err));
+
+        // Fetch companies which are now separate
+        api.get('/companies/')
+            .then(response => setCompanies(response.data))
+            .catch(err => console.error("Error fetching companies:", err));
+    }, []);
+
     // Initial Fetch for Work Centers, Contracts and Templates from Django API
     useEffect(() => {
         // We only want to fetch if the user is authenticated (we have a token)
         if (localStorage.getItem('access_token')) {
+            api.get('/users/')
+                .then(response => setUsers(response.data))
+                .catch(err => console.error("Error fetching users:", err));
+
+            api.get('/companies/')
+                .then(response => setCompanies(response.data))
+                .catch(err => console.error("Error fetching companies:", err));
+
             api.get('/workcenters/')
                 .then(response => setWorkCenters(response.data))
                 .catch(err => console.error("Error fetching work centers:", err));
@@ -235,19 +233,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return p;
         });
         if (projectsChanged) setProjects(normalizedProjects);
-
-        let usersChanged = false;
-        const normalizedUsers = users.map(u => {
-            if (u.role === 'COMPANY' && !u.contacts) {
-                usersChanged = true;
-                return { ...u, contacts: [] };
-            }
-            return u;
-        });
-        if (usersChanged) setUsers(normalizedUsers);
     }, []); // Only on mount
 
     const addUser = (user: User) => setUsers([...users, user]);
+    const addCompany = (company: Company) => setCompanies([...companies, company]);
+    const updateCompany = (company: Company) => setCompanies(companies.map(c => c.id === company.id ? company : c));
+    const deleteCompany = (id: string) => setCompanies(companies.filter(c => c.id !== id));
     const updateUser = (user: User) => setUsers(users.map(u => u.id === user.id ? user : u));
     const deleteUser = (id: string) => setUsers(users.filter(u => u.id !== id));
 
@@ -408,7 +399,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // Mock email notification
             const project = projects.find(p => p.id === meeting.projectId);
             if (project) {
-                const assignedCompanies = project.companyIds.map(cid => users.find(u => u.id === cid)).filter(Boolean);
+                const assignedCompanies = project.companyIds.map(cid => companies.find(c => c.id === cid)).filter(Boolean);
                 const allContacts = assignedCompanies.flatMap(c => c?.contacts || []);
                 const recipients = allContacts.filter(c => c.id === project.mainContactId || c.id === project.contractManagerId);
 
@@ -513,6 +504,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         <AppContext.Provider value={{
             currentUser,
             users,
+            companies,
             contracts,
             projects,
             documents,
@@ -520,8 +512,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             workCenters,
             setCurrentUser,
             addUser,
+            addCompany,
             updateUser,
             deleteUser,
+            updateCompany,
+            deleteCompany,
             addContract,
             updateContract,
             deleteContract,

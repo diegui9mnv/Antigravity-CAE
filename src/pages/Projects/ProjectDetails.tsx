@@ -9,7 +9,7 @@ import Modal from '../../components/UI/Modal';
 const ProjectDetails = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { projects, contracts, workCenters, users, updateProject, setHeaderActions } = useApp();
+    const { projects, contracts, workCenters, companies, updateProject, setHeaderActions } = useApp();
     const [isAuthorizeModalOpen, setIsAuthorizeModalOpen] = React.useState(false);
 
     const formatDate = (dateString: string) => {
@@ -20,18 +20,18 @@ const ProjectDetails = () => {
         return `${day}/${month}/${year}`;
     };
 
-    const project = projects.find(p => p.id === id);
+    const project = projects.find(p => String(p.id) === String(id));
 
     if (!project) return <div>Proyecto no encontrado</div>;
 
-    const contract = contracts.find(c => c.id === project.contractId);
+    const contract = contracts.find(c => String(c.id) === String(project.contractId));
 
-    const assignedCompanies = (project.companyIds || []).map(cid => users.find(u => u.id === cid)).filter(Boolean);
+    const assignedCompanies = (project.companyIds || []).map(cid => companies.find(u => String(u.id) === String(cid))).filter(Boolean);
     const allContacts = assignedCompanies.flatMap(c => c?.contacts || []);
 
-    const mainContact = allContacts.find(c => c.id === project.mainContactId);
-    const contractManager = allContacts.find(c => c.id === project.contractManagerId);
-    const selectedContacts = (project.contactIds || []).map(cid => allContacts.find(c => c.id === cid)).filter(Boolean);
+    const mainContact = allContacts.find(c => String(c.id) === String(project.mainContactId));
+    const contractManager = allContacts.find(c => String(c.id) === String(project.contractManagerId));
+    const selectedContacts = (project.contactIds || []).map(cid => allContacts.find(c => String(c.id) === String(cid))).filter(Boolean);
 
     // Memoize the header action button to prevent render loops
     const headerButton = React.useMemo(() => {
@@ -202,7 +202,7 @@ const ProjectDetails = () => {
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
                     {(project.companyIds || []).map(cid => {
-                        const company = users.find(u => u.id === cid);
+                        const company = companies.find(u => u.id === cid);
                         if (!company) return null;
                         return (
                             <div key={cid} style={{ padding: '1rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--background)' }}>

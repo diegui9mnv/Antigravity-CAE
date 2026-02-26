@@ -49,25 +49,34 @@ const WorkCenterForm: React.FC<WorkCenterFormProps> = ({ isOpen, onClose, editin
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        // In a real app we would upload the file here
-        const riskInfoUrl = file ? URL.createObjectURL(file) : formData.riskInfoUrl;
+        const submitData = (riskInfoUrl: string | undefined) => {
+            if (editingWorkCenter) {
+                updateWorkCenter({
+                    ...formData,
+                    id: editingWorkCenter.id,
+                    riskInfoUrl
+                });
+            } else {
+                const newWc = {
+                    ...formData,
+                    id: Math.random().toString(36).substr(2, 9),
+                    riskInfoUrl
+                };
+                addWorkCenter(newWc);
+                if (onCreated) onCreated(newWc as any);
+            }
+            onClose();
+        };
 
-        if (editingWorkCenter) {
-            updateWorkCenter({
-                ...formData,
-                id: editingWorkCenter.id,
-                riskInfoUrl
-            });
-        } else {
-            const newWc = {
-                ...formData,
-                id: Math.random().toString(36).substr(2, 9),
-                riskInfoUrl
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                submitData(event.target?.result as string);
             };
-            addWorkCenter(newWc);
-            if (onCreated) onCreated(newWc);
+            reader.readAsDataURL(file);
+        } else {
+            submitData(formData.riskInfoUrl);
         }
-        onClose();
     };
 
     if (!isOpen) return null;

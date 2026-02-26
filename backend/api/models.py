@@ -28,11 +28,10 @@ class User(AbstractUser):
     ROLE_CHOICES = [
         ('MANAGER', 'MANAGER'),
         ('COORDINATOR', 'COORDINATOR'),
-        ('COMPANY', 'COMPANY'),
     ]
 
     name = models.CharField("Nombre / Razón Social", max_length=255)
-    role = models.CharField("Rol", max_length=20, choices=ROLE_CHOICES, default='COMPANY')
+    role = models.CharField("Rol", max_length=20, choices=ROLE_CHOICES, default='COORDINATOR')
     avatar = models.ImageField("Avatar", upload_to='avatars/', null=True, blank=True)
     phone = models.CharField("Teléfono", max_length=20, null=True, blank=True)
     cif = models.CharField("CIF", max_length=20, null=True, blank=True)
@@ -51,8 +50,22 @@ class User(AbstractUser):
         return f"{self.name} ({self.get_role_display()})"
 
 
+class Company(models.Model):
+    name = models.CharField("Razón Social", max_length=255)
+    cif = models.CharField("CIF", max_length=20, null=True, blank=True)
+    email = models.EmailField("Correo electrónico", null=True, blank=True)
+    phone = models.CharField("Teléfono", max_length=20, null=True, blank=True)
+    avatar = models.ImageField("Logo", upload_to='company_logos/', null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Empresa"
+        verbose_name_plural = "Empresas"
+
+    def __str__(self):
+        return self.name
+
 class CompanyContact(models.Model):
-    company = models.ForeignKey(User, on_delete=models.CASCADE, related_name='contacts', verbose_name="Empresa")
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='contacts', verbose_name="Empresa")
     first_name = models.CharField("Nombre", max_length=150)
     last_name = models.CharField("Apellidos", max_length=150, null=True, blank=True)
     email = models.EmailField("Correo electrónico")
@@ -70,9 +83,9 @@ class Contract(models.Model):
     start_date = models.DateField("Fecha de inicio")
     end_date = models.DateField("Fecha de fin")
     client_name = models.CharField("Nombre del cliente", max_length=255)
-    contact_name = models.CharField("Nombre de contacto", max_length=255)
-    contact_email = models.EmailField("Email de contacto")
-    contact_phone = models.CharField("Teléfono de contacto", max_length=20)
+    contact_name = models.CharField("Nombre de contacto", max_length=255, null=True, blank=True)
+    contact_email = models.EmailField("Email de contacto", null=True, blank=True)
+    contact_phone = models.CharField("Teléfono de contacto", max_length=20, null=True, blank=True)
     amount = models.DecimalField("Importe", max_digits=12, decimal_places=2)
     coordinator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='coordinated_contracts')
 
@@ -98,7 +111,7 @@ class WorkCenter(models.Model):
     zip_code = models.CharField("Código Postal", max_length=10)
     phone = models.CharField("Teléfono", max_length=20)
     province = models.CharField("Provincia", max_length=50, choices=PROVINCE_CHOICES)
-    risk_info_file = models.FileField(upload_to='risk_files/', null=True, blank=True)
+    risk_info_url = models.TextField("URL/Base64 de Riesgos", null=True, blank=True)
     risk_info_file_name = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
@@ -119,9 +132,9 @@ class Project(models.Model):
     description = models.TextField("Descripción")
     start_date = models.DateField("Fecha de inicio")
     end_date = models.DateField("Fecha de fin")
-    work_center = models.ForeignKey(WorkCenter, on_delete=models.PROTECT)
+    work_center = models.ForeignKey(WorkCenter, on_delete=models.SET_NULL, null=True, blank=True)
     manager = models.ForeignKey(User, on_delete=models.PROTECT, related_name='managed_projects')
-    companies = models.ManyToManyField(User, related_name='projects')
+    companies = models.ManyToManyField(Company, related_name='projects')
     fecha_solicitud = models.DateField()
     created_at = models.DateTimeField(auto_now_add=True)
     contacts = models.ManyToManyField(CompanyContact, related_name='projects')
@@ -143,7 +156,7 @@ class ProjectDocument(models.Model):
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='documents')
     name = models.CharField(max_length=255)
-    url = models.URLField(max_length=500)
+    url = models.TextField("URL/Base64 del documento")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='BORRADOR')
     category = models.CharField(max_length=100, null=True, blank=True)
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)

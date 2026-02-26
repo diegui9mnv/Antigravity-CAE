@@ -1,10 +1,10 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, Briefcase, LogOut, Building2, MapPin } from 'lucide-react';
+import { LayoutDashboard, FileText, Briefcase, LogOut, Building2, MapPin, Users } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import '../../index.css';
 
 const Sidebar = () => {
-    const { setCurrentUser } = useApp();
+    const { currentUser, setCurrentUser } = useApp();
     return (
         <aside style={{
             width: '250px',
@@ -149,6 +149,29 @@ const Sidebar = () => {
                             <span>Plantillas</span>
                         </NavLink>
                     </li>
+                    {currentUser?.role === 'MANAGER' && (
+                        <li>
+                            <NavLink
+                                to="/users"
+                                className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+                                style={({ isActive }) => ({
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.75rem',
+                                    padding: '0.75rem 1rem',
+                                    borderRadius: 'var(--radius-md)',
+                                    color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
+                                    backgroundColor: isActive ? '#EEF2FF' : 'transparent',
+                                    textDecoration: 'none',
+                                    marginBottom: '0.5rem',
+                                    transition: 'all 0.2s'
+                                })}
+                            >
+                                <Users size={20} />
+                                <span>Usuarios</span>
+                            </NavLink>
+                        </li>
+                    )}
                 </ul>
             </nav>
 

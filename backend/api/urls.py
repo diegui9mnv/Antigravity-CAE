@@ -5,13 +5,14 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 from .views import (
-    UserViewSet, CompanyContactViewSet, ContractViewSet, 
+    UserViewSet, CompanyViewSet, CompanyContactViewSet, ContractViewSet, 
     WorkCenterViewSet, ProjectViewSet, ProjectDocumentViewSet, 
     MeetingViewSet, DocumentTemplateViewSet
 )
 
 router = DefaultRouter()
 router.register(r'users', UserViewSet)
+router.register(r'companies', CompanyViewSet)
 router.register(r'contacts', CompanyContactViewSet)
 router.register(r'contracts', ContractViewSet)
 router.register(r'workcenters', WorkCenterViewSet)

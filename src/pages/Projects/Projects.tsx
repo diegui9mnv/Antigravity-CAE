@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import type { Project, User, WorkCenter } from '../../types';
+import type { Project, WorkCenter } from '../../types';
+import api from '../../services/api';
 import { Plus, Search, Building2, Briefcase } from 'lucide-react';
 import MeatballMenu from '../../components/UI/MeatballMenu';
 import Modal from '../../components/UI/Modal';
@@ -11,7 +12,7 @@ import WorkCenterForm from '../WorkCenters/WorkCenterForm';
 
 const Projects = () => {
     const navigate = useNavigate();
-    const { projects, contracts, users, currentUser, addProject, updateProject, deleteProject, addUser, workCenters } = useApp();
+    const { projects, contracts, companies, currentUser, addProject, updateProject, deleteProject, workCenters, addCompany } = useApp();
     const [searchTerm, setSearchTerm] = useState('');
 
     // Filter State
@@ -42,6 +43,8 @@ const Projects = () => {
     const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
     const [newCompanyName, setNewCompanyName] = useState('');
     const [newCompanyEmail, setNewCompanyEmail] = useState('');
+    const [newCompanyCif, setNewCompanyCif] = useState('');
+    const [newCompanyPhone, setNewCompanyPhone] = useState('');
 
     // Delete Confirmation Modal State
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -56,16 +59,16 @@ const Projects = () => {
 
     const canEdit = currentUser?.role === 'COORDINATOR' || currentUser?.role === 'MANAGER';
 
-    const companies = users.filter(u => u.role === 'COMPANY');
+
 
     const [searchParams, setSearchParams] = useSearchParams();
     const contractIdFilter = searchParams.get('contractId');
 
     const filteredProjects = projects.filter(p => {
-        // Filter by company assignment if user is a COMPANY
-        if (currentUser?.role === 'COMPANY' && !(p.companyIds || []).includes(currentUser.id)) {
-            return false;
-        }
+        // Companies login are not implemented as users anymore, skip this filter for now
+        // if (currentUser?.role === 'COMPANY' && !(p.companyIds || []).includes(currentUser.id)) {
+        //    return false;
+        // }
 
         // Filter by Contract ID if present in URL
         if (contractIdFilter && p.contractId !== contractIdFilter) {
@@ -172,34 +175,44 @@ const Projects = () => {
         }
     };
 
-    const handleCompanySubmit = (e: React.FormEvent) => {
+    const handleCompanySubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const newCompany: User = {
-            id: Math.random().toString(36).substr(2, 9),
-            role: 'COMPANY',
-            name: newCompanyName,
-            email: newCompanyEmail,
-            contacts: []
-        };
-        addUser(newCompany);
-        setIsCompanyModalOpen(false);
-        setNewCompanyName('');
-        setNewCompanyEmail('');
+        try {
+            const formDataToSubmit = {
+                name: newCompanyName,
+                email: newCompanyEmail || null,
+                cif: newCompanyCif || null,
+                phone: newCompanyPhone || null
+            };
+            const res = await api.post('/companies/', formDataToSubmit);
+            const newCompany = res.data;
 
-        // Auto-select the new company
-        setFormData(prev => ({
-            ...prev,
-            companyIds: [...(prev.companyIds || []), newCompany.id]
-        }));
+            addCompany(newCompany);
+
+            setIsCompanyModalOpen(false);
+            setNewCompanyName('');
+            setNewCompanyEmail('');
+            setNewCompanyCif('');
+            setNewCompanyPhone('');
+
+            // Auto-select the new company
+            setFormData(prev => ({
+                ...prev,
+                companyIds: [...(prev.companyIds || []), newCompany.id]
+            }));
+        } catch (error) {
+            console.error("Error creating quick company", error);
+            alert("Error al crear la empresa rápida.");
+        }
     };
 
     const availableContacts = (formData.companyIds || [])
         .flatMap(companyId => {
-            const company = users.find(u => u.id === companyId);
+            const company = companies.find(c => c.id === companyId);
             return company?.contacts || [];
         });
 
-    const allAvailableContacts = users.flatMap(u => u.contacts || []);
+    const allAvailableContacts = companies.flatMap(c => c.contacts || []);
 
     const workCenterOptions = workCenters.map(wc => ({
         id: wc.id,
@@ -386,19 +399,19 @@ const Projects = () => {
                                 <td style={{ padding: '1rem', fontWeight: 500 }}>{project.code || '-'}</td>
                                 <td style={{ padding: '1rem' }}>{project.description}</td>
                                 <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
-                                    {workCenters.find(wc => wc.id === project.workCenterId)?.name || 'N/A'}
+                                    {workCenters.find(wc => String(wc.id) === String(project.workCenterId))?.name || 'N/A'}
                                 </td>
                                 <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
-                                    {workCenters.find(wc => wc.id === project.workCenterId)?.province || 'N/A'}
+                                    {workCenters.find(wc => String(wc.id) === String(project.workCenterId))?.province || 'N/A'}
                                 </td>
                                 <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
                                     {project.fechaSolicitud ? project.fechaSolicitud.split('-').reverse().join('/') : '-'}
                                 </td>
                                 <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
                                     {(() => {
-                                        const contact = allAvailableContacts.find(c => c.id === project.mainContactId);
+                                        const contact = allAvailableContacts.find(c => String(c.id) === String(project.mainContactId));
                                         if (!contact) return '-';
-                                        const company = users.find(u => u.contacts?.some(c => c.id === contact.id));
+                                        const company = companies.find(u => u.contacts?.some(c => String(c.id) === String(contact.id)));
                                         return (
                                             <span
                                                 onClick={(e) => {
@@ -414,9 +427,9 @@ const Projects = () => {
                                 </td>
                                 <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
                                     {(() => {
-                                        const contact = allAvailableContacts.find(c => c.id === project.contractManagerId);
+                                        const contact = allAvailableContacts.find(c => String(c.id) === String(project.contractManagerId));
                                         if (!contact) return '-';
-                                        const company = users.find(u => u.contacts?.some(c => c.id === contact.id));
+                                        const company = companies.find(u => u.contacts?.some(c => String(c.id) === String(contact.id)));
                                         return (
                                             <span
                                                 onClick={(e) => {
@@ -459,7 +472,7 @@ const Projects = () => {
                                 <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                                         {(project.companyIds || []).map(cid => {
-                                            const company = users.find(u => u.id === cid);
+                                            const company = companies.find(u => String(u.id) === String(cid));
                                             if (!company) return null;
                                             return (
                                                 <span
@@ -724,7 +737,7 @@ const Projects = () => {
                     }}>
                         <Building2 size={24} className="text-primary" />
                         <div className="text-sm text-secondary">
-                            Esta empresa estará disponible inmediatamente para asignarla al proyecto.
+                            Esta empresa de prueba estará disponible inmediatamente para asignarla al proyecto. Si se cambia de página se perderá porque no está guardada.
                         </div>
                     </div>
 
@@ -740,12 +753,31 @@ const Projects = () => {
                     </div>
 
                     <div>
-                        <label className="text-sm font-bold block mb-2">Correo electrónico</label>
+                        <label className="text-sm font-bold block mb-2">Correo electrónico (Opcional)</label>
                         <input
-                            required
                             type="email"
                             value={newCompanyEmail}
                             onChange={e => setNewCompanyEmail(e.target.value)}
+                            style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="text-sm font-bold block mb-2">CIF (Opcional)</label>
+                        <input
+                            type="text"
+                            value={newCompanyCif}
+                            onChange={e => setNewCompanyCif(e.target.value)}
+                            style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="text-sm font-bold block mb-2">Teléfono (Opcional)</label>
+                        <input
+                            type="tel"
+                            value={newCompanyPhone}
+                            onChange={e => setNewCompanyPhone(e.target.value)}
                             style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}
                         />
                     </div>

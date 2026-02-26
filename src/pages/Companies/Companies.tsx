@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import type { User, CompanyContact } from '../../types';
+import type { CompanyContact } from '../../types';
+import api from '../../services/api';
 import { Plus, Search, Building2, UserPlus, Mail, Phone, ChevronDown, ChevronUp } from 'lucide-react';
 import Modal from '../../components/UI/Modal';
 import MeatballMenu from '../../components/UI/MeatballMenu';
 
 const Companies = () => {
-    const { users, addUser, updateUser, deleteUser, currentUser } = useApp();
+    const { currentUser, companies, addCompany, updateCompany, deleteCompany } = useApp();
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [formData, setFormData] = useState<Partial<User>>({});
+    const [formData, setFormData] = useState<any>({});
     const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
     const [contactForm, setContactForm] = useState<Partial<CompanyContact>>({});
@@ -30,41 +31,46 @@ const Companies = () => {
 
     const canEdit = currentUser?.role === 'MANAGER' || currentUser?.role === 'COORDINATOR';
 
-    const companies = users.filter(u => u.role === 'COMPANY');
-
     const filteredCompanies = companies.filter(c =>
         c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (c.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (c.cif || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const handleOpenModal = (company?: User) => {
+    const handleOpenModal = (company?: any) => {
         if (company) {
             setFormData(company);
         } else {
-            setFormData({ role: 'COMPANY', contacts: [] });
+            setFormData({});
         }
         setIsModalOpen(true);
     };
 
-    const handleDeleteCompany = (id: string) => {
+    const handleDeleteCompany = async (id: string) => {
         if (window.confirm('¿Estás seguro de que deseas eliminar esta empresa?')) {
-            deleteUser(id);
+            try {
+                await api.delete(`/companies/${id}/`);
+                deleteCompany(id);
+            } catch (error) {
+                console.error("Error deleting company:", error);
+            }
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (formData.id) {
-            updateUser(formData as User);
-        } else {
-            addUser({
-                id: Math.random().toString(36).substr(2, 9),
-                ...formData,
-                contacts: formData.contacts || []
-            } as User);
+        try {
+            if (formData.id) {
+                const res = await api.put(`/companies/${formData.id}/`, formData);
+                updateCompany(res.data);
+            } else {
+                const res = await api.post('/companies/', formData);
+                addCompany(res.data);
+            }
+            setIsModalOpen(false);
+        } catch (error) {
+            console.error("Error saving company:", error);
         }
-        setIsModalOpen(false);
     };
 
     const handleOpenContactModal = (contact?: CompanyContact) => {
@@ -78,37 +84,34 @@ const Companies = () => {
         setIsContactModalOpen(true);
     };
 
-    const handleContactSubmit = (e: React.FormEvent) => {
+    const handleContactSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const company = companies.find(c => c.id === selectedCompanyId);
-        if (!company) return;
-
-        let updatedContacts;
-        if (editingContactId) {
-            updatedContacts = (company.contacts || []).map(c =>
-                c.id === editingContactId ? { ...contactForm, id: editingContactId } as CompanyContact : c
-            );
-        } else {
-            const newContact = {
-                id: Math.random().toString(36).substr(2, 9),
-                ...contactForm
-            } as CompanyContact;
-            updatedContacts = [...(company.contacts || []), newContact];
+        try {
+            if (editingContactId) {
+                await api.put(`/contacts/${editingContactId}/`, contactForm);
+            } else {
+                await api.post('/contacts/', { ...contactForm, company: selectedCompanyId });
+            }
+            // Temporarily not reloading companies fully since we don't have loadCompanies anymore.
+            // Ideally, we'd update the specific company's contacts array.
+            // We can just rely on user refreshing if they want to see updated contacts, or update it manually
+            // For now, reloading window is the easiest fix to refresh global state
+            window.location.reload();
+            setIsContactModalOpen(false);
+            setContactForm({});
+        } catch (error) {
+            console.error("Error saving contact:", error);
         }
-
-        updateUser({ ...company, contacts: updatedContacts });
-        setIsContactModalOpen(false);
-        setContactForm({});
     };
 
-    const handleDeleteContact = (contactId: string) => {
-        const company = companies.find(c => c.id === selectedCompanyId);
-        if (!company || !window.confirm('¿Estás seguro de que deseas eliminar este contacto?')) return;
-
-        updateUser({
-            ...company,
-            contacts: (company.contacts || []).filter(c => c.id !== contactId)
-        });
+    const handleDeleteContact = async (contactId: string) => {
+        if (!window.confirm('¿Estás seguro de que deseas eliminar este contacto?')) return;
+        try {
+            await api.delete(`/contacts/${contactId}/`);
+            window.location.reload();
+        } catch (error) {
+            console.error("Error deleting contact:", error);
+        }
     };
 
     return (
@@ -217,7 +220,7 @@ const Companies = () => {
 
                                 <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
                                     {(company.contacts || []).length > 0 ? (
-                                        (company.contacts || []).map(contact => (
+                                        (company.contacts || []).map((contact: any) => (
                                             <div key={contact.id} className="card" style={{ padding: '1rem', position: 'relative', border: '1px solid var(--border)' }}>
                                                 <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>{contact.firstName} {contact.lastName}</div>
                                                 <div className="text-sm text-secondary mb-1 flex items-center gap-2">
@@ -276,7 +279,6 @@ const Companies = () => {
                         <div style={{ flex: 1 }}>
                             <label className="text-sm font-bold block mb-2">CIF</label>
                             <input
-                                required
                                 type="text"
                                 value={formData.cif || ''}
                                 onChange={e => setFormData({ ...formData, cif: e.target.value })}
@@ -289,7 +291,6 @@ const Companies = () => {
                         <div style={{ flex: 1 }}>
                             <label className="text-sm font-bold block mb-2">Correo electrónico</label>
                             <input
-                                required
                                 type="email"
                                 value={formData.email || ''}
                                 onChange={e => setFormData({ ...formData, email: e.target.value })}
@@ -310,7 +311,7 @@ const Companies = () => {
                     <div style={{ marginTop: '1rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--background)' }}>
                         <h4 style={{ marginBottom: '1rem' }}>Vista Previa de Contactos</h4>
                         <div className="contacts-list">
-                            {(formData.contacts || []).map(contact => (
+                            {(formData.contacts || []).map((contact: any) => (
                                 <div key={contact.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', borderBottom: '1px solid var(--border)', fontSize: '0.875rem' }}>
                                     <div>
                                         <strong>{contact.firstName} {contact.lastName}</strong> ({contact.position || 'Sin cargo'})
