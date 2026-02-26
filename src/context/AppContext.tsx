@@ -32,6 +32,7 @@ interface AppState {
     deleteDocument: (id: string) => void;
     addMeeting: (meeting: Meeting) => void;
     updateMeeting: (meeting: Meeting) => void;
+    notifyMeeting: (id: string) => Promise<boolean>;
     addMeetingSignature: (id: string, signature: Signature) => void;
     addWorkCenter: (workCenter: WorkCenter) => void;
     updateWorkCenter: (workCenter: WorkCenter) => void;
@@ -395,24 +396,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             const response = await api.post('/meetings/', dataToSubmit);
             setMeetings([...meetings, response.data]);
-
-            // Mock email notification
-            const project = projects.find(p => p.id === meeting.projectId);
-            if (project) {
-                const assignedCompanies = project.companyIds.map(cid => companies.find(c => c.id === cid)).filter(Boolean);
-                const allContacts = assignedCompanies.flatMap(c => c?.contacts || []);
-                const recipients = allContacts.filter(c => c.id === project.mainContactId || c.id === project.contractManagerId);
-
-                if (recipients.length > 0) {
-                    console.log('%c[SIMULACIÓN EMAIL]', 'color: #4f46e5; font-weight: bold;');
-                    console.log(`Para: ${recipients.map(r => `${r.firstName} <${r.email}>`).join(', ')}`);
-                    console.log(`Asunto: Nueva Reunión programada - ${project.code}`);
-                    console.log(`Cuerpo: Se ha programado una nueva reunión "${meeting.reason}" para el día ${meeting.startDate} a las ${meeting.time}. Lugar: ${meeting.location}${meeting.type === 'ONLINE' ? ` (Enlace: ${meeting.teamsLink})` : ''}.`);
-                    console.log('---------------------------');
-                }
-            }
         } catch (error) {
             console.error("Error adding meeting:", error);
+        }
+    };
+
+    const notifyMeeting = async (id: string): Promise<boolean> => {
+        try {
+            await api.post(`/meetings/${id}/notify/`);
+            return true;
+        } catch (error: any) {
+            console.error("Error notifying meeting:", error);
+            if (error.response?.data?.error) {
+                alert(error.response.data.error);
+            } else {
+                alert("Error al enviar notificaciones.");
+            }
+            return false;
         }
     };
 
@@ -530,6 +530,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             deleteDocument,
             addMeeting,
             updateMeeting,
+            notifyMeeting,
             addMeetingSignature,
             addWorkCenter,
             updateWorkCenter,

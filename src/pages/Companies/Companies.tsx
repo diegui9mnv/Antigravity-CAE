@@ -92,11 +92,12 @@ const Companies = () => {
             } else {
                 await api.post('/contacts/', { ...contactForm, company: selectedCompanyId });
             }
-            // Temporarily not reloading companies fully since we don't have loadCompanies anymore.
-            // Ideally, we'd update the specific company's contacts array.
-            // We can just rely on user refreshing if they want to see updated contacts, or update it manually
-            // For now, reloading window is the easiest fix to refresh global state
-            window.location.reload();
+            // Fetch fresh company to update contact list
+            if (selectedCompanyId) {
+                const res = await api.get(`/companies/${selectedCompanyId}/`);
+                updateCompany(res.data);
+            }
+
             setIsContactModalOpen(false);
             setContactForm({});
         } catch (error) {
@@ -107,8 +108,16 @@ const Companies = () => {
     const handleDeleteContact = async (contactId: string) => {
         if (!window.confirm('¿Estás seguro de que deseas eliminar este contacto?')) return;
         try {
+            // Fetch fresh company to update contact list
+            // Find which company this contact belongs to before deleting
+            const parentCompany = companies.find(c => c.contacts?.some(contact => contact.id === contactId));
+
             await api.delete(`/contacts/${contactId}/`);
-            window.location.reload();
+
+            if (parentCompany) {
+                const res = await api.get(`/companies/${parentCompany.id}/`);
+                updateCompany(res.data);
+            }
         } catch (error) {
             console.error("Error deleting contact:", error);
         }

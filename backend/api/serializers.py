@@ -62,9 +62,17 @@ class ProjectDocumentSerializer(serializers.ModelSerializer):
 
 
 class MeetingSerializer(serializers.ModelSerializer):
+    project_id = serializers.PrimaryKeyRelatedField(
+        queryset=Project.objects.all(), source='project'
+    )
+
     class Meta:
         model = Meeting
-        fields = '__all__'
+        fields = [
+            'id', 'project_id', 'start_date', 'end_date', 'time', 
+            'reason', 'location', 'type', 'teams_link', 'status', 'attendees', 
+            'notification_contacts', 'minutes', 'minute_pdf_url', 'signatures', 'is_notified'
+        ]
 
 
 class DocumentTemplateSerializer(serializers.ModelSerializer):
@@ -97,13 +105,19 @@ class ProjectSerializer(serializers.ModelSerializer):
     contact_ids = serializers.PrimaryKeyRelatedField(
         queryset=CompanyContact.objects.all(), source='contacts', many=True
     )
+    main_contact_id = serializers.PrimaryKeyRelatedField(
+        queryset=CompanyContact.objects.all(), source='main_contact', required=False, allow_null=True
+    )
+    contract_manager_id = serializers.PrimaryKeyRelatedField(
+        queryset=CompanyContact.objects.all(), source='contract_manager', required=False, allow_null=True
+    )
 
     class Meta:
         model = Project
         fields = [
-            'id', 'code', 'description', 'start_date', 'end_date',
+            'id', 'code', 'description', 'start_date', 'end_date', 'fecha_solicitud',
+            'created_at', 'company_status', 'documentation_status',
             'contract', 'work_center', 'manager', 'companies', 'contacts',
             'contract_id', 'work_center_id', 'manager_id', 'company_ids', 'contact_ids',
-            'fecha_solicitud', 'created_at', 'main_contact', 'contract_manager',
-            'company_status', 'documentation_status'
+            'main_contact_id', 'contract_manager_id'
         ]

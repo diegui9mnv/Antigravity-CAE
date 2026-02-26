@@ -102,9 +102,11 @@ export interface Meeting {
     teamsLink?: string;
     status: MeetingStatus;
     attendees: string[]; // User IDs (Companies + Coordinator)
+    notificationContacts?: string[]; // Contact IDs to notify
     minutes?: string; // Meeting minutes / notes
     minutePdfUrl?: string; // URL to generated PDF
     signatures: Signature[];
+    isNotified?: boolean;
 }
 
 export type WorkCenterType = 'EMBALSE' | 'OFICINA';

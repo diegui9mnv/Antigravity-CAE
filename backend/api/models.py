@@ -187,10 +187,12 @@ class Meeting(models.Model):
     type = models.CharField(max_length=20, choices=TYPE_CHOICES)
     teams_link = models.URLField(max_length=500, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PROGRAMADA')
-    attendees = models.ManyToManyField(User, related_name='meetings')
+    attendees = models.ManyToManyField(User, blank=True, related_name='meetings')
+    notification_contacts = models.ManyToManyField(CompanyContact, blank=True, related_name='meeting_notifications')
     minutes = models.TextField(null=True, blank=True)
     minute_pdf_url = models.URLField(max_length=500, null=True, blank=True)
     signatures = models.JSONField(default=list, blank=True)
+    is_notified = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = "Reunión"

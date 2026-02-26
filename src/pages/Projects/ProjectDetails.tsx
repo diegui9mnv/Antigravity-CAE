@@ -22,17 +22,6 @@ const ProjectDetails = () => {
 
     const project = projects.find(p => String(p.id) === String(id));
 
-    if (!project) return <div>Proyecto no encontrado</div>;
-
-    const contract = contracts.find(c => String(c.id) === String(project.contractId));
-
-    const assignedCompanies = (project.companyIds || []).map(cid => companies.find(u => String(u.id) === String(cid))).filter(Boolean);
-    const allContacts = assignedCompanies.flatMap(c => c?.contacts || []);
-
-    const mainContact = allContacts.find(c => String(c.id) === String(project.mainContactId));
-    const contractManager = allContacts.find(c => String(c.id) === String(project.contractManagerId));
-    const selectedContacts = (project.contactIds || []).map(cid => allContacts.find(c => String(c.id) === String(cid))).filter(Boolean);
-
     // Memoize the header action button to prevent render loops
     const headerButton = React.useMemo(() => {
         if (!project || project.documentationStatus === 'VERIFICADA') return null;
@@ -59,6 +48,17 @@ const ProjectDetails = () => {
         setHeaderActions(headerButton);
         return () => setHeaderActions(null);
     }, [headerButton, setHeaderActions]);
+
+    if (!project) return <div className="p-8 text-center text-secondary">Cargando proyecto o no encontrado...</div>;
+
+    const contract = contracts.find(c => String(c.id) === String(project.contractId));
+
+    const assignedCompanies = (project.companyIds || []).map(cid => companies.find(u => String(u.id) === String(cid))).filter(Boolean);
+    const allContacts = assignedCompanies.flatMap(c => c?.contacts || []);
+
+    const mainContact = allContacts.find(c => String(c.id) === String(project.mainContactId));
+    const contractManager = allContacts.find(c => String(c.id) === String(project.contractManagerId));
+    const selectedContacts = (project.contactIds || []).map(cid => allContacts.find(c => String(c.id) === String(cid))).filter(Boolean);
 
     const handleConfirmAuthorize = () => {
         if (project) {

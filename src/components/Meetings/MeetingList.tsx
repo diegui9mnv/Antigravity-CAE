@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import type { Meeting } from '../../types';
-import { FileText, Plus, Eye, CheckCircle, MapPin, Video, Clock, Calendar, Users } from 'lucide-react';
+import { FileText, Plus, Eye, CheckCircle, MapPin, Video, Clock, Calendar, Users, Mail, Settings } from 'lucide-react';
 import Modal from '../UI/Modal';
 import { jsPDF } from 'jspdf';
 
@@ -10,10 +10,14 @@ interface MeetingListProps {
 }
 
 const MeetingList: React.FC<MeetingListProps> = ({ projectId }) => {
-    const { meetings, addMeeting, updateMeeting, projects, contracts, users, currentUser, workCenters } = useApp();
+    const { meetings, addMeeting, updateMeeting, notifyMeeting, companies, projects, contracts, users, currentUser, workCenters } = useApp();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formData, setFormData] = useState<Partial<Meeting>>({});
     const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
+
+    const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false);
+    const [notifyMeetingId, setNotifyMeetingId] = useState<string | null>(null);
+    const [notifySelectedContacts, setNotifySelectedContacts] = useState<string[]>([]);
 
     const projectMeetings = meetings.filter(m => m.projectId === projectId);
     const project = projects.find(p => p.id === projectId);
@@ -50,13 +54,48 @@ const MeetingList: React.FC<MeetingListProps> = ({ projectId }) => {
                 ...formData
             } as Meeting);
         } else {
+            const defaultContacts = [project?.mainContactId, project?.contractManagerId].filter(Boolean) as string[];
             addMeeting({
-                id: Math.random().toString(36).substr(2, 9),
+                id: `temp-${Math.random().toString(36).substr(2, 9)}`,
                 projectId,
+                notificationContacts: defaultContacts,
                 ...formData
             } as Meeting);
         }
         setIsModalOpen(false);
+    };
+
+    const handleOpenNotifyModal = (meeting: Meeting) => {
+        const initialContacts = meeting.notificationContacts?.length
+            ? meeting.notificationContacts
+            : [project?.mainContactId, project?.contractManagerId].filter(Boolean) as string[];
+        setNotifySelectedContacts(initialContacts);
+        setNotifyMeetingId(meeting.id);
+        setIsNotifyModalOpen(true);
+    };
+
+    const handleSaveNotifyOptions = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const meeting = meetings.find(m => m.id === notifyMeetingId);
+        if (meeting) {
+            await updateMeeting({ ...meeting, notificationContacts: notifySelectedContacts });
+        }
+        setIsNotifyModalOpen(false);
+        setNotifyMeetingId(null);
+    };
+
+    const handleNotify = async (meeting: Meeting) => {
+        if (meeting.isNotified) {
+            await updateMeeting({ ...meeting, isNotified: false });
+            return;
+        }
+
+        if (window.confirm("¿Seguro que deseas enviar la convocatoria por correo a los destinatarios configurados?")) {
+            const success = await notifyMeeting(meeting.id);
+            if (success) {
+                await updateMeeting({ ...meeting, isNotified: true });
+            }
+        }
     };
 
     const formatDate = (dateString: string) => {
@@ -223,6 +262,26 @@ const MeetingList: React.FC<MeetingListProps> = ({ projectId }) => {
                                             Editar
                                         </button>
                                     )}
+                                    {canManage && meeting.status === 'PROGRAMADA' && (
+                                        <>
+                                            <button
+                                                className={`btn ${meeting.isNotified ? 'btn-primary' : 'btn-outline'}`}
+                                                onClick={() => handleNotify(meeting)}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', height: '32px' }}
+                                                title={meeting.isNotified ? "Notificación enviada" : "Notificar Reunión"}
+                                            >
+                                                {meeting.isNotified ? <CheckCircle size={16} /> : <Mail size={16} />}
+                                            </button>
+                                            <button
+                                                className="btn btn-outline"
+                                                onClick={() => handleOpenNotifyModal(meeting)}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', height: '32px' }}
+                                                title="Opciones de notificación"
+                                            >
+                                                <Settings size={16} />
+                                            </button>
+                                        </>
+                                    )}
                                     <button
                                         className="btn btn-outline"
                                         onClick={() => generatePDF(meeting)}
@@ -359,7 +418,51 @@ const MeetingList: React.FC<MeetingListProps> = ({ projectId }) => {
 
                     <div className="flex gap-md justify-between" style={{ marginTop: '1rem' }}>
                         <button type="button" className="btn btn-outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-                        <button type="submit" className="btn btn-primary">{editingMeetingId ? "Actualizar Reunión" : "Programar y Notificar"}</button>
+                        <button type="submit" className="btn btn-primary">{editingMeetingId ? "Actualizar Reunión" : "Programar"}</button>
+                    </div>
+                </form>
+            </Modal>
+
+            <Modal isOpen={isNotifyModalOpen} onClose={() => setIsNotifyModalOpen(false)} title="Opciones de Notificación">
+                <form onSubmit={handleSaveNotifyOptions} style={{ display: 'grid', gap: '1rem' }}>
+                    <p className="text-sm text-secondary mb-2">
+                        Selecciona los contactos que recibirán la convocatoria por correo electrónico cuando pulses el botón de notificar. Por defecto se sugieren los contactos principales del proyecto.
+                    </p>
+                    <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '1rem' }}>
+                        {project?.companyIds.map(cid => {
+                            const comp = companies.find(c => c.id === cid);
+                            if (!comp || !comp.contacts || comp.contacts.length === 0) return null;
+                            return (
+                                <div key={comp.id} style={{ marginBottom: '1rem' }}>
+                                    <div className="text-sm font-bold mb-2 text-primary">{comp.name}</div>
+                                    <div style={{ display: 'grid', gap: '0.5rem' }}>
+                                        {comp.contacts.map(contact => (
+                                            <label key={contact.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={notifySelectedContacts.includes(contact.id)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setNotifySelectedContacts([...notifySelectedContacts, contact.id]);
+                                                        } else {
+                                                            setNotifySelectedContacts(notifySelectedContacts.filter(id => id !== contact.id));
+                                                        }
+                                                    }}
+                                                />
+                                                {contact.firstName} {contact.lastName} ({contact.email})
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {project?.companyIds.length === 0 && (
+                            <div className="text-center text-sm text-secondary italic">No hay empresas asignadas al proyecto.</div>
+                        )}
+                    </div>
+                    <div className="flex justify-end gap-2 mt-4">
+                        <button type="button" className="btn btn-outline" onClick={() => setIsNotifyModalOpen(false)}>Cancelar</button>
+                        <button type="submit" className="btn btn-primary">Guardar Destinatarios</button>
                     </div>
                 </form>
             </Modal>
