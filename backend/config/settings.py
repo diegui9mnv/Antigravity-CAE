@@ -165,5 +165,7 @@ EMAIL_HOST = 'smtp.office365.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'plataformacae@cemosa.es'
+EMAIL_HOST_USER = 'plataformacae@cemosa.es'
 EMAIL_HOST_PASSWORD = '3FkUiUTH5pkV'
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+EMAIL_TIMEOUT = 10
