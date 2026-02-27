@@ -26,8 +26,10 @@ SECRET_KEY = 'django-insecure-)g91set(lsd1&kh8#)!*b9p+)e)cni$2_)a&o^qeh=$j9v+&4y
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = ["*"]  # demo
-
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+# In production, ALLOWED_HOSTS should ideally contain the Render and Vercel URLs
+RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 SECRET_KEY = os.environ.get("SECRET_KEY", SECRET_KEY)
 
 # Application definition
@@ -127,10 +129,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-]
+CORS_ALLOW_ALL_ORIGINS = True # Allow all origins for Vercel demo, or you could list Vercel domains in CORS_ALLOWED_ORIGINS
 
 AUTH_USER_MODEL = 'api.User'
 
