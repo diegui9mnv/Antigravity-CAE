@@ -1,0 +1,14 @@
+src/context/AppContext.tsx(225,17): error TS2367: This comparison appears to be unintentional because the types 'Role' and '"COMPANY"' have no overlap.
+src/context/AppContext.tsx(225,44): error TS2339: Property 'contacts' does not exist on type 'User'.
+src/context/AppContext.tsx(396,71): error TS2339: Property 'contacts' does not exist on type 'User'.
+src/pages/Projects/ProjectDetails.tsx(30,59): error TS2339: Property 'contacts' does not exist on type 'User'.
+src/pages/Projects/ProjectDetails.tsx(215,70): error TS2339: Property 'phone' does not exist on type 'User'.
+src/pages/Projects/Projects.tsx(59,41): error TS2367: This comparison appears to be unintentional because the types 'Role' and '"COMPANY"' have no overlap.
+src/pages/Projects/Projects.tsx(66,13): error TS2367: This comparison appears to be unintentional because the types 'Role | undefined' and '"COMPANY"' have no overlap.
+src/pages/Projects/Projects.tsx(179,13): error TS2322: Type '"COMPANY"' is not assignable to type 'Role'.
+src/pages/Projects/Projects.tsx(199,29): error TS2339: Property 'contacts' does not exist on type 'User'.
+src/pages/Projects/Projects.tsx(202,55): error TS2339: Property 'contacts' does not exist on type 'User'.
+src/pages/Projects/Projects.tsx(401,75): error TS2339: Property 'contacts' does not exist on type 'User'.
+src/pages/Projects/Projects.tsx(401,90): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/pages/Projects/Projects.tsx(419,75): error TS2339: Property 'contacts' does not exist on type 'User'.
+src/pages/Projects/Projects.tsx(419,90): error TS7006: Parameter 'c' implicitly has an 'any' type.

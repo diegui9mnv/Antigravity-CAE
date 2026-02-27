@@ -1,4 +1,4 @@
-export type Role = 'MANAGER' | 'COORDINATOR';
+export type Role = 'MANAGER' | 'COORDINATOR' | 'COMPANY';
 
 export interface Company {
     id: string;
@@ -26,6 +26,8 @@ export interface User {
     email: string;
     role: Role;
     avatar?: string;
+    phone?: string;
+    contacts?: CompanyContact[];
 }
 
 export interface Contract {
