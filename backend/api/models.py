@@ -139,7 +139,7 @@ class Project(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     contacts = models.ManyToManyField(CompanyContact, related_name='projects')
     main_contact = models.ForeignKey(CompanyContact, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
-    contract_manager = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='project_contract_managers')
+    contract_manager = models.ForeignKey(CompanyContact, on_delete=models.SET_NULL, null=True, blank=True, related_name='project_contract_managers')
     company_status = models.CharField(max_length=20, choices=COMPANY_STATUS_CHOICES, default='INACTIVA')
     documentation_status = models.CharField(max_length=20, choices=DOC_STATUS_CHOICES, default='NO_VERIFICADA')
 
@@ -191,6 +191,7 @@ class Meeting(models.Model):
     notification_contacts = models.ManyToManyField(CompanyContact, blank=True, related_name='meeting_notifications')
     minutes = models.TextField(null=True, blank=True)
     minute_pdf_url = models.URLField(max_length=500, null=True, blank=True)
+    document_data = models.TextField(null=True, blank=True)
     signatures = models.JSONField(default=list, blank=True)
     is_notified = models.BooleanField(default=False)
 
@@ -198,6 +199,15 @@ class Meeting(models.Model):
         verbose_name = "Reunión"
         verbose_name_plural = "Reuniones"
 
+class MeetingDocument(models.Model):
+    meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE, related_name='documents')
+    name = models.CharField(max_length=255)
+    file_data = models.TextField("Base64 Document Data")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Documento de Reunión"
+        verbose_name_plural = "Documentos de Reunión"
 
 class DocumentTemplate(models.Model):
     name = models.CharField(max_length=255)
@@ -209,3 +219,50 @@ class DocumentTemplate(models.Model):
     class Meta:
         verbose_name = "Plantilla de Documento"
         verbose_name_plural = "Plantillas de Documentos"
+
+
+class FollowUpMeeting(models.Model):
+    STATUS_CHOICES = [
+        ('PROGRAMADA', 'PROGRAMADA'), ('EN_CURSO', 'EN_CURSO'),
+        ('REALIZADA', 'REALIZADA'), ('CANCELADA', 'CANCELADA')
+    ]
+    TYPE_CHOICES = [
+        ('PRESENCIAL', 'PRESENCIAL'), ('ONLINE', 'ONLINE')
+    ]
+
+    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name='follow_up_meetings')
+    reason = models.CharField("Motivo", max_length=255)
+    date = models.DateField("Fecha")
+    time = models.TimeField("Hora")
+    type = models.CharField("Tipo", max_length=20, choices=TYPE_CHOICES)
+    teams_link = models.URLField(max_length=500, null=True, blank=True)
+    location = models.CharField("Lugar", max_length=255, null=True, blank=True)
+    status = models.CharField("Estado", max_length=20, choices=STATUS_CHOICES, default='PROGRAMADA')
+    provinces = models.JSONField("Provincias", default=list, blank=True)
+    work_centers = models.ManyToManyField(WorkCenter, related_name='follow_up_meetings', blank=True)
+    companies = models.ManyToManyField(Company, related_name='follow_up_meetings', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    document_data = models.TextField("Acta generada (Base64)", null=True, blank=True)
+    notification_contacts = models.ManyToManyField(CompanyContact, blank=True, related_name='followup_notifications')
+    is_notified = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "Reunión de Seguimiento"
+        verbose_name_plural = "Reuniones de Seguimiento"
+
+
+class FollowUpMeetingConfig(models.Model):
+    meeting = models.OneToOneField(FollowUpMeeting, on_delete=models.CASCADE, related_name='config')
+    numero_reunion = models.IntegerField("Número de Reunión", default=1)
+    revision_informacion = models.TextField("Revisión de la información suministrada", null=True, blank=True)
+    observaciones_intercambio = models.TextField("Observaciones al intercambio de información", null=True, blank=True)
+    solapes_empresas = models.TextField("Existencia de solapes entre empresas", null=True, blank=True)
+    accidentes_trabajo = models.TextField("Accidentes de trabajo", null=True, blank=True)
+    emergencia = models.TextField("Emergencia", null=True, blank=True)
+    otros_temas = models.TextField("Otros temas", null=True, blank=True)
+    ruegos_preguntas = models.TextField("Ruegos y preguntas", null=True, blank=True)
+    signatures = models.JSONField("Firmas", default=list, blank=True)
+
+    class Meta:
+        verbose_name = "Configuración de Acta de Seguimiento"
+        verbose_name_plural = "Configuraciones de Acta de Seguimiento"

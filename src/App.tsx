@@ -12,6 +12,7 @@ import WorkCenters from './pages/WorkCenters/WorkCenters';
 import Signing from './pages/Signing/Signing';
 import Templates from './pages/Templates/Templates';
 import Users from './pages/Users/Users';
+import Seguimiento from './pages/Seguimiento/Seguimiento';
 
 const ProtectedRoute = () => {
   const { currentUser } = useApp();
@@ -33,6 +34,7 @@ function App() {
             <Route path="companies" element={<Companies />} />
             <Route path="work-centers" element={<WorkCenters />} />
             <Route path="templates" element={<Templates />} />
+            <Route path="seguimiento" element={<Seguimiento />} />
             <Route path="users" element={<Users />} />
           </Route>
           <Route path="/signing/:id" element={<Signing />} />

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { User, Company, Project, Contract, ProjectDocument, Signature, DocumentStatus, MeetingStatus, WorkCenter, Meeting, DocumentTemplate } from '../types';
+import type { User, Company, Project, Contract, ProjectDocument, Signature, DocumentStatus, MeetingStatus, WorkCenter, Meeting, DocumentTemplate, FollowUpMeeting, FollowUpMeetingConfig } from '../types';
 import api from '../services/api';
 
 interface AppState {
@@ -34,6 +34,7 @@ interface AppState {
     updateMeeting: (meeting: Meeting) => void;
     notifyMeeting: (id: string) => Promise<boolean>;
     addMeetingSignature: (id: string, signature: Signature) => void;
+    addMeetingDocument: (meetingId: string, name: string, fileData: string) => Promise<void>;
     addWorkCenter: (workCenter: WorkCenter) => void;
     updateWorkCenter: (workCenter: WorkCenter) => void;
     deleteWorkCenter: (id: string) => void;
@@ -43,6 +44,13 @@ interface AppState {
     deleteTemplate: (id: string) => void;
     headerActions: React.ReactNode | null;
     setHeaderActions: (actions: React.ReactNode | null) => void;
+    followUpMeetings: FollowUpMeeting[];
+    addFollowUpMeeting: (meeting: FollowUpMeeting) => Promise<void>;
+    updateFollowUpMeeting: (meeting: FollowUpMeeting) => Promise<void>;
+    deleteFollowUpMeeting: (id: string) => Promise<void>;
+    saveFollowUpConfig: (config: FollowUpMeetingConfig) => Promise<void>;
+    generateFollowUpActa: (id: string) => Promise<void>;
+    notifyFollowUpMeeting: (id: string) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -97,6 +105,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [workCenters, setWorkCenters] = useState<WorkCenter[]>([]);
     const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
     const [headerActions, setHeaderActions] = useState<React.ReactNode | null>(null);
+    const [followUpMeetings, setFollowUpMeetings] = useState<FollowUpMeeting[]>([]);
 
     // Fetch initial global users (even unauthenticated sometimes for login)
     useEffect(() => {
@@ -145,6 +154,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             api.get('/meetings/')
                 .then(response => setMeetings(response.data))
                 .catch(err => console.error("Error fetching meetings:", err));
+
+            api.get('/follow-up-meetings/')
+                .then(response => setFollowUpMeetings(response.data))
+                .catch(err => console.error("Error fetching follow-up meetings:", err));
         }
     }, [currentUser]); // Re-fetch when user logs in
 
@@ -437,6 +450,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     };
 
+    const addMeetingDocument = async (meetingId: string, name: string, fileData: string) => {
+        try {
+            const dataToSubmit = {
+                meeting: meetingId,
+                name,
+                file_data: fileData
+            };
+            const response = await api.post('/meeting-documents/', dataToSubmit);
+
+            // Re-fetch or update local meeting state with new document
+            // A simple approach is just updating the meetings array where m.id === meetingId
+            // by appending the newly returned Document
+            setMeetings(meetings.map(m => {
+                if (m.id === meetingId) {
+                    const currentDocs = m.documents || [];
+                    return { ...m, documents: [...currentDocs, response.data] };
+                }
+                return m;
+            }));
+
+        } catch (error) {
+            console.error("Error adding meeting document:", error);
+            throw error;
+        }
+    };
+
     const addWorkCenter = async (workCenter: WorkCenter) => {
         try {
             // Remove the ID if it's a temporary client-side ID so Django can auto-generate it
@@ -500,6 +539,87 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     };
 
+    const addFollowUpMeeting = async (meeting: FollowUpMeeting) => {
+        try {
+            const dataToSubmit = { ...meeting } as any;
+            if (dataToSubmit.id && String(dataToSubmit.id).includes('temp')) delete dataToSubmit.id;
+            const response = await api.post('/follow-up-meetings/', dataToSubmit);
+            setFollowUpMeetings(prev => [response.data, ...prev]);
+        } catch (error) {
+            console.error("Error adding follow-up meeting:", error);
+            throw error;
+        }
+    };
+
+    const updateFollowUpMeeting = async (meeting: FollowUpMeeting) => {
+        try {
+            const response = await api.put(`/follow-up-meetings/${meeting.id}/`, meeting);
+            setFollowUpMeetings(prev => prev.map(m => String(m.id) === String(meeting.id) ? response.data : m));
+        } catch (error) {
+            console.error("Error updating follow-up meeting:", error);
+        }
+    };
+
+    const deleteFollowUpMeeting = async (id: string) => {
+        try {
+            await api.delete(`/follow-up-meetings/${id}/`);
+            setFollowUpMeetings(prev => prev.filter(m => String(m.id) !== String(id)));
+        } catch (error) {
+            console.error("Error deleting follow-up meeting:", error);
+        }
+    };
+
+    const saveFollowUpConfig = async (config: FollowUpMeetingConfig) => {
+        try {
+            if (config.id) {
+                const response = await api.put(`/follow-up-configs/${config.id}/`, config);
+                setFollowUpMeetings(prev => prev.map(m =>
+                    String(m.id) === String(config.meeting) ? { ...m, config: response.data } : m
+                ));
+            } else {
+                const response = await api.post('/follow-up-configs/', config);
+                setFollowUpMeetings(prev => prev.map(m =>
+                    String(m.id) === String(config.meeting) ? { ...m, config: response.data } : m
+                ));
+            }
+        } catch (error) {
+            console.error("Error saving follow-up config:", error);
+            throw error;
+        }
+    };
+
+    const generateFollowUpActa = async (id: string) => {
+        try {
+            const response = await api.post(`/follow-up-meetings/${id}/generate_acta/`);
+            setFollowUpMeetings(prev => prev.map(m =>
+                String(m.id) === String(id) ? response.data : m
+            ));
+        } catch (error: any) {
+            console.error("Error generating follow-up acta:", error);
+            if (error.response?.data?.error) {
+                alert(error.response.data.error);
+            } else {
+                alert("Error al generar el acta de seguimiento.");
+            }
+            throw error;
+        }
+    };
+
+    const notifyFollowUpMeeting = async (id: string): Promise<boolean> => {
+        try {
+            await api.post(`/follow-up-meetings/${id}/notify/`);
+            return true;
+        } catch (error: any) {
+            console.error("Error notifying follow-up meeting:", error);
+            if (error.response?.data?.error) {
+                alert(error.response.data.error);
+            } else {
+                alert("Error al enviar notificaciones.");
+            }
+            return false;
+        }
+    };
+
     return (
         <AppContext.Provider value={{
             currentUser,
@@ -532,6 +652,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             updateMeeting,
             notifyMeeting,
             addMeetingSignature,
+            addMeetingDocument,
             addWorkCenter,
             updateWorkCenter,
             deleteWorkCenter,
@@ -540,7 +661,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             updateTemplate,
             deleteTemplate,
             headerActions,
-            setHeaderActions
+            setHeaderActions,
+            followUpMeetings,
+            addFollowUpMeeting,
+            updateFollowUpMeeting,
+            deleteFollowUpMeeting,
+            saveFollowUpConfig,
+            generateFollowUpActa,
+            notifyFollowUpMeeting
         }}>
             {children}
         </AppContext.Provider>

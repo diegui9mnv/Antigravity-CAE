@@ -15,7 +15,8 @@ const Templates = () => {
         'Anexo III',
         'Anexo IV',
         'Listado de trabajadores',
-        'Reuniones',
+        'Acta Inicial',
+        'Acta de Seguimiento',
         'Otros'
     ];
 

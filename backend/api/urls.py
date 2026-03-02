@@ -7,7 +7,8 @@ from rest_framework_simplejwt.views import (
 from .views import (
     UserViewSet, CompanyViewSet, CompanyContactViewSet, ContractViewSet, 
     WorkCenterViewSet, ProjectViewSet, ProjectDocumentViewSet, 
-    MeetingViewSet, DocumentTemplateViewSet
+    MeetingViewSet, DocumentTemplateViewSet, MeetingDocumentViewSet,
+    FollowUpMeetingViewSet, FollowUpMeetingConfigViewSet
 )
 
 router = DefaultRouter()
@@ -19,7 +20,10 @@ router.register(r'workcenters', WorkCenterViewSet)
 router.register(r'projects', ProjectViewSet)
 router.register(r'documents', ProjectDocumentViewSet)
 router.register(r'meetings', MeetingViewSet)
+router.register(r'meeting-documents', MeetingDocumentViewSet)
 router.register(r'templates', DocumentTemplateViewSet)
+router.register(r'follow-up-meetings', FollowUpMeetingViewSet)
+router.register(r'follow-up-configs', FollowUpMeetingConfigViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

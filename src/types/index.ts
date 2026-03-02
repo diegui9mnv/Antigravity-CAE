@@ -92,6 +92,14 @@ export interface ProjectDocument {
 
 export type MeetingStatus = 'PROGRAMADA' | 'EN_CURSO' | 'REALIZADA' | 'CANCELADA';
 
+export interface MeetingDocument {
+    id: string;
+    meetingId: string;
+    name: string;
+    fileData: string;
+    uploadedAt: string;
+}
+
 export interface Meeting {
     id: string;
     projectId: string;
@@ -107,6 +115,8 @@ export interface Meeting {
     notificationContacts?: string[]; // Contact IDs to notify
     minutes?: string; // Meeting minutes / notes
     minutePdfUrl?: string; // URL to generated PDF
+    documentData?: string; // Generated DOCX template
+    documents?: MeetingDocument[]; // All associated documents
     signatures: Signature[];
     isNotified?: boolean;
 }
@@ -134,4 +144,40 @@ export interface DocumentTemplate {
     fileData: string; // Base64 or Blob URL
     fileName: string;
     updatedAt: string;
+}
+
+export type FollowUpMeetingStatus = 'PROGRAMADA' | 'EN_CURSO' | 'REALIZADA' | 'CANCELADA';
+
+export interface FollowUpMeetingConfig {
+    id?: string;
+    meeting?: string;
+    numeroReunion: number;
+    revisionInformacion?: string;
+    observacionesIntercambio?: string;
+    solapesEmpresas?: string;
+    accidentesTrabajo?: string;
+    emergencia?: string;
+    otrosTemas?: string;
+    ruegosPreguntas?: string;
+    signatures?: Array<{ company: string, name: string, role: string, data: string }>;
+}
+
+export interface FollowUpMeeting {
+    id: string;
+    contractId: string;
+    reason: string;
+    date: string;
+    time: string;
+    type: 'PRESENCIAL' | 'ONLINE';
+    teamsLink?: string;
+    location?: string;
+    status: FollowUpMeetingStatus;
+    provinces: string[];
+    workCenterIds: string[];
+    companyIds: string[];
+    createdAt?: string;
+    config?: FollowUpMeetingConfig;
+    documentData?: string;
+    notificationContacts?: string[];
+    isNotified?: boolean;
 }

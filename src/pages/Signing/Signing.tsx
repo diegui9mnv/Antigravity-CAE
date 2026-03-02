@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import api from '../../services/api';
 import { CheckCircle, PenTool } from 'lucide-react';
 import SignaturePad from '../../components/SignaturePad';
 import DraggableSignature from '../../components/DraggableSignature';
@@ -23,13 +24,32 @@ const Signing = () => {
         meetings,
         projects,
         addDocument,
-        addMeetingSignature,
+        updateMeeting,
         currentUser
     } = useApp();
     const [isSigned, setIsSigned] = useState(false);
 
-    const doc = type === 'document' ? documents.find(d => d.id === id) : null;
-    const meeting = type === 'meeting' ? meetings.find(m => m.id === id) : null;
+    const contextDoc = type === 'document' ? documents.find(d => String(d.id) === String(id)) : null;
+    const contextMeeting = type === 'meeting' ? meetings.find(m => String(m.id) === String(id)) : null;
+
+    // Fallback to fetch directly
+    const [fetchedItem, setFetchedItem] = useState<any>(null);
+    const [fetchFailed, setFetchFailed] = useState(false);
+
+    useEffect(() => {
+        if (!contextDoc && !contextMeeting && id && !fetchFailed && !fetchedItem) {
+            const endpoint = type === 'document' ? `/documents/${id}/` : `/meetings/${id}/`;
+            api.get(endpoint)
+                .then(res => setFetchedItem(res.data))
+                .catch(err => {
+                    console.error("Could not fetch item directly", err);
+                    setFetchFailed(true);
+                });
+        }
+    }, [id, type, contextDoc, contextMeeting, fetchFailed, fetchedItem]);
+
+    const doc = type === 'document' ? (contextDoc || fetchedItem) : null;
+    const meeting = type === 'meeting' ? (contextMeeting || fetchedItem) : null;
     const item = doc || meeting;
 
     const [signature, setSignature] = useState(currentUser?.name || '');
@@ -45,7 +65,7 @@ const Signing = () => {
 
     useEffect(() => {
         if (item && currentUser) {
-            const hasSigned = item.signatures.some(s => s.userId === currentUser.id);
+            const hasSigned = (item.signatures || []).some((s: any) => s.userId === currentUser.id);
             if (hasSigned) {
                 setIsSigned(true);
             }
@@ -54,18 +74,19 @@ const Signing = () => {
 
     useEffect(() => {
         const loadContent = async () => {
-            if (!doc?.url || doc.url === '#') return;
+            const fileUrl = type === 'document' ? doc?.url : meeting?.documentData;
+            if (!fileUrl || fileUrl === '#') return;
 
             setIsLoadingContent(true);
             try {
-                const base64Data = doc.url.split(',')[1];
+                const base64Data = fileUrl.split(',')[1];
                 const binaryString = window.atob(base64Data);
                 const bytes = new Uint8Array(binaryString.length);
                 for (let i = 0; i < binaryString.length; i++) {
                     bytes[i] = binaryString.charCodeAt(i);
                 }
 
-                if (doc.url.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
+                if (fileUrl.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
                     // It's a DOCX
                     // Improve mammoth style mapping
                     const options = {
@@ -76,7 +97,7 @@ const Signing = () => {
                     };
                     const result = await mammoth.convertToHtml({ arrayBuffer: bytes.buffer }, options);
                     setDocHtml(result.value);
-                } else if (doc.url.includes('application/pdf')) {
+                } else if (fileUrl.includes('application/pdf')) {
                     // It's a PDF
                     const loadingTask = pdfjsLib.getDocument({ data: bytes });
                     const pdf = await loadingTask.promise;
@@ -103,10 +124,10 @@ const Signing = () => {
             }
         };
 
-        if (type === 'document' && doc) {
+        if ((type === 'document' && doc) || (type === 'meeting' && meeting?.documentData)) {
             loadContent();
         }
-    }, [doc, type]);
+    }, [doc, meeting, type]);
 
     const handleSign = async () => {
         if (!signature.trim()) {
@@ -187,8 +208,16 @@ const Signing = () => {
                             // Optional: update the original document status to 'ACEPTADO' or keep it
                             // Usually the original stays as 'BORRADOR' if it was a template
                             // Let's just keep it to see two documents
-                        } else if (type === 'meeting') {
-                            addMeetingSignature(id, newSignature);
+                        } else if (type === 'meeting' && meeting) {
+                            // Convert the meeting document to a PDF and save it, keeping the signatures
+                            const updatedSignatures = [...(meeting.signatures || []), newSignature];
+
+                            // Call updateMeeting to replace the DOCX with the signed PDF
+                            updateMeeting({
+                                ...meeting,
+                                documentData: signedPdfData,
+                                signatures: updatedSignatures
+                            });
                         }
                         setIsSigned(true);
                     }
@@ -208,7 +237,14 @@ const Signing = () => {
     };
 
     if (!item) {
-        return <div className="p-8 text-center text-secondary">Elemento no encontrado o acceso denegado.</div>;
+        if (fetchFailed) {
+            return <div className="p-8 text-center text-secondary">Elemento no encontrado o acceso denegado.</div>;
+        }
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <div className="loader">Cargando documento...</div>
+            </div>
+        );
     }
 
     const project = type === 'document' ? projects.find(p => p.id === doc?.projectId) : projects.find(p => p.id === meeting?.projectId);
@@ -324,7 +360,7 @@ const Signing = () => {
                             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
                                 <div className="loader">Cargando contenido del documento...</div>
                             </div>
-                        ) : type === 'document' ? (
+                        ) : type === 'document' || (type === 'meeting' && meeting?.documentData) ? (
                             <div style={{ lineHeight: '1.5' }}>
                                 {/* If we have DOCX HTML */}
                                 {docHtml && (
@@ -367,7 +403,7 @@ const Signing = () => {
                     </div>
 
                     {/* Rendering all existing signatures */}
-                    {(item.signatures || []).map((sig, index) => (
+                    {(item.signatures || []).map((sig: Signature, index: number) => (
                         <div key={index} style={{
                             position: 'absolute',
                             left: sig.position.x,

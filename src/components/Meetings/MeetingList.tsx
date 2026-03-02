@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import type { Meeting } from '../../types';
-import { FileText, Plus, Eye, CheckCircle, MapPin, Video, Clock, Calendar, Users, Mail, Settings } from 'lucide-react';
+import { FileText, Plus, CheckCircle, MapPin, Video, Clock, Calendar, Users, Mail, Settings, Upload } from 'lucide-react';
 import Modal from '../UI/Modal';
 import { jsPDF } from 'jspdf';
 
@@ -10,14 +10,18 @@ interface MeetingListProps {
 }
 
 const MeetingList: React.FC<MeetingListProps> = ({ projectId }) => {
-    const { meetings, addMeeting, updateMeeting, notifyMeeting, companies, projects, contracts, users, currentUser, workCenters } = useApp();
+    const { meetings, addMeeting, updateMeeting, notifyMeeting, companies, projects, contracts, users, currentUser, workCenters, addMeetingDocument } = useApp();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [draggingMeetingId, setDraggingMeetingId] = useState<string | null>(null);
     const [formData, setFormData] = useState<Partial<Meeting>>({});
     const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
 
     const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false);
     const [notifyMeetingId, setNotifyMeetingId] = useState<string | null>(null);
     const [notifySelectedContacts, setNotifySelectedContacts] = useState<string[]>([]);
+
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const [uploadingMeetingId, setUploadingMeetingId] = useState<string | null>(null);
 
     const projectMeetings = meetings.filter(m => m.projectId === projectId);
     const project = projects.find(p => p.id === projectId);
@@ -107,6 +111,16 @@ const MeetingList: React.FC<MeetingListProps> = ({ projectId }) => {
     };
 
     const generatePDF = (meeting: Meeting) => {
+        if (meeting.documentData) {
+            const isPdf = meeting.documentData.includes('application/pdf');
+            const ext = isPdf ? 'pdf' : 'docx';
+            const link = document.createElement('a');
+            link.href = meeting.documentData;
+            link.download = `acta-reunion-${meeting.startDate}.${ext}`;
+            link.click();
+            return;
+        }
+
         const doc = new jsPDF();
         const contract = contracts.find(c => c.id === project?.contractId);
 
@@ -156,6 +170,67 @@ const MeetingList: React.FC<MeetingListProps> = ({ projectId }) => {
         doc.save(`acta-reunion-${meeting.startDate}.pdf`);
     };
 
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, _meeting?: Meeting) => {
+        const file = e.target.files?.[0];
+        if (!file || !uploadingMeetingId) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const base64Data = event.target?.result as string;
+            if (base64Data) {
+                try {
+                    // Directly use the new addMeetingDocument API
+                    await addMeetingDocument(uploadingMeetingId, file.name, base64Data);
+                } catch (error) {
+                    console.error("Error uploading signed document:", error);
+                    alert("Hubo un error al subir el documento.");
+                }
+            }
+        };
+        reader.readAsDataURL(file);
+
+        // Reset the input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+        setUploadingMeetingId(null);
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>, meetingId: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDraggingMeetingId(meetingId);
+    };
+
+    const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDraggingMeetingId(null);
+    };
+
+    const handleDrop = async (e: React.DragEvent<HTMLDivElement>, meetingId: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDraggingMeetingId(null);
+
+        const file = e.dataTransfer.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const base64Data = event.target?.result as string;
+            if (base64Data) {
+                try {
+                    await addMeetingDocument(meetingId, file.name, base64Data);
+                } catch (error) {
+                    console.error("Error uploading signed document:", error);
+                    alert("Hubo un error al subir el documento.");
+                }
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
     return (
         <div className="card">
             <div className="flex justify-between items-center mb-4">
@@ -179,7 +254,19 @@ const MeetingList: React.FC<MeetingListProps> = ({ projectId }) => {
                     <p className="text-secondary text-center py-4">No hay reuniones registradas.</p>
                 ) : (
                     projectMeetings.sort((a, b) => b.startDate.localeCompare(a.startDate)).map(meeting => (
-                        <div key={meeting.id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--background)', overflow: 'hidden' }}>
+                        <div
+                            key={meeting.id}
+                            style={{
+                                border: draggingMeetingId === meeting.id ? '2px dashed var(--primary)' : '1px solid var(--border)',
+                                borderRadius: 'var(--radius-md)',
+                                backgroundColor: draggingMeetingId === meeting.id ? '#EEF2FF' : 'var(--background)',
+                                overflow: 'hidden',
+                                transition: 'all 0.2s ease'
+                            }}
+                            onDragOver={(e) => handleDragOver(e, meeting.id)}
+                            onDragLeave={handleDragLeave}
+                            onDrop={(e) => handleDrop(e, meeting.id)}
+                        >
                             <div
                                 style={{
                                     display: 'flex',
@@ -226,6 +313,7 @@ const MeetingList: React.FC<MeetingListProps> = ({ projectId }) => {
                                         {meeting.status}
                                     </div>
 
+                                    {/* 
                                     {meeting.status === 'REALIZADA' ? (
                                         <button
                                             className="btn btn-primary"
@@ -236,7 +324,7 @@ const MeetingList: React.FC<MeetingListProps> = ({ projectId }) => {
                                             Ver y Firmar
                                         </button>
                                     ) : (
-                                        isCoordinator && (
+                                        canManage && (
                                             <button
                                                 className="btn btn-primary"
                                                 onClick={() => {
@@ -252,6 +340,7 @@ const MeetingList: React.FC<MeetingListProps> = ({ projectId }) => {
                                             </button>
                                         )
                                     )}
+                                    */}
 
                                     {isCoordinator && meeting.status !== 'REALIZADA' && meeting.status !== 'CANCELADA' && (
                                         <button
@@ -280,16 +369,33 @@ const MeetingList: React.FC<MeetingListProps> = ({ projectId }) => {
                                             >
                                                 <Settings size={16} />
                                             </button>
+                                            <button
+                                                className="btn btn-primary"
+                                                onClick={() => {
+                                                    if (window.confirm('¿Estás seguro de que deseas marcar esta reunión como REALIZADA? Se deshabilitarán las opciones de edición y notificación.')) {
+                                                        updateMeeting({ ...meeting, status: 'REALIZADA' });
+                                                    }
+                                                }}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', height: '32px' }}
+                                                title="Marcar como Realizada"
+                                            >
+                                                <CheckCircle size={16} /> Completar
+                                            </button>
                                         </>
                                     )}
-                                    <button
-                                        className="btn btn-outline"
-                                        onClick={() => generatePDF(meeting)}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', height: '32px' }}
-                                        title="Descargar Acta PDF"
-                                    >
-                                        <FileText size={16} />
-                                    </button>
+                                    {canManage && (
+                                        <button
+                                            className="btn btn-outline"
+                                            onClick={() => {
+                                                setUploadingMeetingId(meeting.id);
+                                                fileInputRef.current?.click();
+                                            }}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', height: '32px' }}
+                                            title="Subir Archivo a la Reunión"
+                                        >
+                                            <Upload size={16} /> Adjuntar Documento
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                             {meeting.type === 'ONLINE' && meeting.teamsLink && (
@@ -304,6 +410,92 @@ const MeetingList: React.FC<MeetingListProps> = ({ projectId }) => {
                                     </a>
                                 </div>
                             )}
+
+                            {/* Render Attached Documents list */}
+                            {(meeting.documentData || (meeting.documents && meeting.documents.length > 0)) && (
+                                <div style={{ padding: '0.5rem 1rem 1rem 4rem', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: '0.25rem' }}>Documentos:</div>
+
+                                    {/* Temporary/Generated Acta DOCX */}
+                                    {meeting.documentData && (
+                                        <div
+                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem', backgroundColor: '#F9FAFB', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', transition: 'background-color 0.2s' }}
+                                            onClick={() => {
+                                                const isPdf = meeting.documentData!.includes('application/pdf');
+                                                if (isPdf) {
+                                                    const parts = meeting.documentData!.split(';base64,');
+                                                    const contentType = parts[0].split(':')[1];
+                                                    const raw = window.atob(parts[1]);
+                                                    const rawLength = raw.length;
+                                                    const uInt8Array = new Uint8Array(rawLength);
+                                                    for (let i = 0; i < rawLength; ++i) {
+                                                        uInt8Array[i] = raw.charCodeAt(i);
+                                                    }
+                                                    const blob = new Blob([uInt8Array], { type: contentType });
+                                                    const url = URL.createObjectURL(blob);
+                                                    window.open(url, '_blank');
+                                                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                                                } else {
+                                                    generatePDF(meeting);
+                                                }
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#EEF2FF'}
+                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
+                                            title={meeting.documentData.includes('application/pdf') ? "Click para ver" : "Click para descargar"}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                <FileText size={14} className="text-secondary" />
+                                                <span style={{ color: 'var(--text-secondary)' }}>
+                                                    {meeting.documentData.includes('application/pdf') ? 'Acta de Reunión.pdf' : 'Acta de Reunión generada.docx'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Uploaded Real Documents Array */}
+                                    {meeting.documents?.map(doc => {
+                                        const isDocPdf = doc.fileData.includes('application/pdf') || doc.name.toLowerCase().endsWith('.pdf');
+                                        return (
+                                            <div
+                                                key={doc.id}
+                                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem', backgroundColor: '#F9FAFB', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', transition: 'background-color 0.2s' }}
+                                                onClick={() => {
+                                                    if (isDocPdf) {
+                                                        const parts = doc.fileData.split(';base64,');
+                                                        const contentType = parts[0].split(':')[1] || 'application/pdf';
+                                                        const raw = window.atob(parts[1]);
+                                                        const rawLength = raw.length;
+                                                        const uInt8Array = new Uint8Array(rawLength);
+                                                        for (let i = 0; i < rawLength; ++i) {
+                                                            uInt8Array[i] = raw.charCodeAt(i);
+                                                        }
+                                                        const blob = new Blob([uInt8Array], { type: contentType });
+                                                        const url = URL.createObjectURL(blob);
+                                                        window.open(url, '_blank');
+                                                        setTimeout(() => URL.revokeObjectURL(url), 1000);
+                                                    } else {
+                                                        const link = document.createElement('a');
+                                                        link.href = doc.fileData;
+                                                        link.download = doc.name;
+                                                        document.body.appendChild(link);
+                                                        link.click();
+                                                        document.body.removeChild(link);
+                                                    }
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#EEF2FF'}
+                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
+                                                title={isDocPdf ? "Click para ver" : "Click para descargar"}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <FileText size={14} className="text-secondary" />
+                                                    <span style={{ color: 'var(--text-secondary)' }}>{doc.name}</span>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+
                             {
                                 (meeting.signatures || []).length > 0 && (
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', padding: '0.5rem 1rem', borderTop: '1px solid var(--border)', backgroundColor: '#F9FAFB' }}>
@@ -315,6 +507,19 @@ const MeetingList: React.FC<MeetingListProps> = ({ projectId }) => {
                     ))
                 )}
             </div>
+
+            <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept=".pdf,.docx"
+                onChange={(e) => {
+                    const meeting = projectMeetings.find(m => m.id === uploadingMeetingId);
+                    if (meeting) {
+                        handleFileUpload(e, meeting);
+                    }
+                }}
+            />
 
             <Modal
                 isOpen={isModalOpen}

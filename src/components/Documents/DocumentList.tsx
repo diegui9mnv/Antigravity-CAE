@@ -28,7 +28,6 @@ const DocumentList: React.FC<DocumentListProps> = ({ projectId }) => {
         'Anexo IV',
         'Listado de trabajadores',
         'Información de riesgos',
-        'Reuniones',
         'Otros'
     ];
 
@@ -258,7 +257,7 @@ const DocumentList: React.FC<DocumentListProps> = ({ projectId }) => {
                                 }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-                                    {(category === 'Listado de trabajadores' || category === 'Reuniones') ? <Users size={18} className="text-secondary" /> : <Folder size={18} className="text-secondary" />}
+                                    {(category === 'Listado de trabajadores') ? <Users size={18} className="text-secondary" /> : <Folder size={18} className="text-secondary" />}
                                     {category}
                                     <span style={{
                                         marginLeft: '0.5rem',

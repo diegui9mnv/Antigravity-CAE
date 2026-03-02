@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, Briefcase, LogOut, Building2, MapPin, Users } from 'lucide-react';
+import { LayoutDashboard, FileText, Briefcase, LogOut, Building2, MapPin, Users, CalendarCheck } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import '../../index.css';
 
@@ -84,6 +84,27 @@ const Sidebar = () => {
                         >
                             <Briefcase size={20} />
                             <span>Proyectos</span>
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink
+                            to="/seguimiento"
+                            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+                            style={({ isActive }) => ({
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.75rem',
+                                padding: '0.75rem 1rem',
+                                borderRadius: 'var(--radius-md)',
+                                color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
+                                backgroundColor: isActive ? '#EEF2FF' : 'transparent',
+                                textDecoration: 'none',
+                                marginBottom: '0.5rem',
+                                transition: 'all 0.2s'
+                            })}
+                        >
+                            <CalendarCheck size={20} />
+                            <span>Seguimiento</span>
                         </NavLink>
                     </li>
                     <li>
@@ -194,7 +215,7 @@ const Sidebar = () => {
                     <span>Cerrar Sesión</span>
                 </button>
             </div>
-        </aside>
+        </aside >
     );
 };
 

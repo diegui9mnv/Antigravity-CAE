@@ -3,9 +3,10 @@ import React, { useRef, useEffect, useState } from 'react';
 interface SignaturePadProps {
     onSave: (dataUrl: string) => void;
     onCancel: () => void;
+    isInline?: boolean;
 }
 
-const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) => {
+const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel, isInline }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isDrawing, setIsDrawing] = useState(false);
 
@@ -15,6 +16,10 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) => {
 
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
+
+        // Rellenamos el fondo de blanco absoluto para evitar bordes en Word
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 2;
@@ -61,7 +66,8 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) => {
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
     };
 
     const handleSave = () => {
@@ -69,6 +75,50 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) => {
         if (!canvas) return;
         onSave(canvas.toDataURL());
     };
+
+    const content = (
+        <div style={{
+            backgroundColor: 'white',
+            padding: isInline ? '0' : '2rem',
+            borderRadius: '8px',
+            boxShadow: isInline ? 'none' : '0 4px 20px rgba(0,0,0,0.2)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem',
+            width: '100%'
+        }}>
+            {!isInline && <h3>Dibujar Firma</h3>}
+            <canvas
+                ref={canvasRef}
+                width={400}
+                height={200}
+                style={{
+                    border: '1px solid #ccc',
+                    backgroundColor: '#fafafa',
+                    cursor: 'crosshair',
+                    touchAction: 'none',
+                    width: '100%',
+                    height: isInline ? '150px' : '200px'
+                }}
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={stopDrawing}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                <button type="button" onClick={clear} className="btn" style={{ border: '1px solid #ccc' }}>Limpiar</button>
+                <button type="button" onClick={onCancel} className="btn" style={{ color: 'var(--text-secondary)' }}>Cancelar</button>
+                <button type="button" onClick={handleSave} className="btn btn-primary">Usar Firma</button>
+            </div>
+        </div>
+    );
+
+    if (isInline) {
+        return content;
+    }
 
     return (
         <div style={{
@@ -83,40 +133,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) => {
             justifyContent: 'center',
             zIndex: 1000
         }}>
-            <div style={{
-                backgroundColor: 'white',
-                padding: '2rem',
-                borderRadius: '8px',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '1rem'
-            }}>
-                <h3>Dibujar Firma</h3>
-                <canvas
-                    ref={canvasRef}
-                    width={400}
-                    height={200}
-                    style={{
-                        border: '1px solid #ccc',
-                        backgroundColor: '#fafafa',
-                        cursor: 'crosshair',
-                        touchAction: 'none'
-                    }}
-                    onMouseDown={startDrawing}
-                    onMouseMove={draw}
-                    onMouseUp={stopDrawing}
-                    onMouseLeave={stopDrawing}
-                    onTouchStart={startDrawing}
-                    onTouchMove={draw}
-                    onTouchEnd={stopDrawing}
-                />
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                    <button onClick={clear} className="btn" style={{ border: '1px solid #ccc' }}>Limpiar</button>
-                    <button onClick={onCancel} className="btn" style={{ color: 'var(--text-secondary)' }}>Cancelar</button>
-                    <button onClick={handleSave} className="btn btn-primary">Usar Firma</button>
-                </div>
-            </div>
+            {content}
         </div>
     );
 };

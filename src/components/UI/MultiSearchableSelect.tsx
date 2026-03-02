@@ -13,9 +13,10 @@ interface MultiSearchableSelectProps {
     value: string[];
     onChange: (value: string[]) => void;
     placeholder?: string;
+    disabled?: boolean;
 }
 
-const MultiSearchableSelect: React.FC<MultiSearchableSelectProps> = ({ options, value, onChange, placeholder }) => {
+const MultiSearchableSelect: React.FC<MultiSearchableSelectProps> = ({ options, value, onChange, placeholder, disabled }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const containerRef = useRef<HTMLDivElement>(null);
@@ -35,6 +36,7 @@ const MultiSearchableSelect: React.FC<MultiSearchableSelectProps> = ({ options, 
     }, []);
 
     const handleSelect = (id: string) => {
+        if (disabled) return;
         if (value.includes(id)) {
             onChange(value.filter(v => v !== id));
         } else {
@@ -44,6 +46,7 @@ const MultiSearchableSelect: React.FC<MultiSearchableSelectProps> = ({ options, 
 
     const removeValue = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
+        if (disabled) return;
         onChange(value.filter(v => v !== id));
     };
 
@@ -56,20 +59,21 @@ const MultiSearchableSelect: React.FC<MultiSearchableSelectProps> = ({ options, 
     return (
         <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
             <div
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={() => !disabled && setIsOpen(!isOpen)}
                 style={{
                     padding: '0.5rem 0.75rem',
                     borderRadius: 'var(--radius-sm)',
                     border: '1px solid var(--border)',
-                    backgroundColor: 'white',
+                    backgroundColor: disabled ? '#F3F4F6' : 'white',
                     display: 'flex',
                     flexWrap: 'wrap',
                     alignItems: 'center',
                     gap: '0.4rem',
                     justifyContent: 'space-between',
-                    cursor: 'pointer',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
                     fontSize: '0.9rem',
-                    minHeight: '42px'
+                    minHeight: '42px',
+                    opacity: disabled ? 0.7 : 1
                 }}
             >
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', flex: 1 }}>
@@ -78,8 +82,8 @@ const MultiSearchableSelect: React.FC<MultiSearchableSelectProps> = ({ options, 
                             <span
                                 key={opt.id}
                                 style={{
-                                    backgroundColor: '#EFF6FF',
-                                    color: 'var(--primary)',
+                                    backgroundColor: disabled ? '#E5E7EB' : '#EFF6FF',
+                                    color: disabled ? '#6B7280' : 'var(--primary)',
                                     padding: '0.15rem 0.5rem',
                                     borderRadius: '4px',
                                     fontSize: '0.75rem',
@@ -87,25 +91,27 @@ const MultiSearchableSelect: React.FC<MultiSearchableSelectProps> = ({ options, 
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '0.25rem',
-                                    border: '1px solid var(--primary-light)'
+                                    border: `1px solid ${disabled ? '#D1D5DB' : 'var(--primary-light)'}`
                                 }}
                             >
                                 {opt.label}
-                                <X
-                                    size={12}
-                                    onClick={(e) => removeValue(opt.id, e)}
-                                    style={{ cursor: 'pointer' }}
-                                />
+                                {!disabled && (
+                                    <X
+                                        size={12}
+                                        onClick={(e) => removeValue(opt.id, e)}
+                                        style={{ cursor: 'pointer' }}
+                                    />
+                                )}
                             </span>
                         ))
                     ) : (
                         <span style={{ color: 'var(--text-secondary)' }}>{placeholder || 'Seleccionar...'}</span>
                     )}
                 </div>
-                <ChevronDown size={18} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+                {!disabled && <ChevronDown size={18} color="var(--text-secondary)" style={{ flexShrink: 0 }} />}
             </div>
 
-            {isOpen && (
+            {isOpen && !disabled && (
                 <div style={{
                     position: 'absolute',
                     top: '100%',
@@ -144,6 +150,7 @@ const MultiSearchableSelect: React.FC<MultiSearchableSelectProps> = ({ options, 
                                 fontSize: '0.9rem',
                                 background: 'transparent'
                             }}
+                            disabled={disabled}
                         />
                     </div>
                     <div style={{ overflowY: 'auto' }}>
