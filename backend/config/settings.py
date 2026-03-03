@@ -30,6 +30,10 @@ ALLOWED_HOSTS = ["*"]  # demo
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
+NETLIFY_URL = os.environ.get('NETLIFY_URL')
+if NETLIFY_URL:
+    ALLOWED_HOSTS.append(NETLIFY_URL.replace('https://', '').replace('http://', '').strip('/'))
 SECRET_KEY = os.environ.get("SECRET_KEY", SECRET_KEY)
 
 # Application definition
@@ -87,7 +91,8 @@ import dj_database_url
 DATABASES = {
     'default': dj_database_url.config(
         default='postgres://antigravity_user:antigravity123@localhost:5432/antigravity_db',
-        conn_max_age=600
+        conn_max_age=600,
+        ssl_require=True if os.environ.get('DATABASE_URL', '').startswith('postgres') and 'localhost' not in os.environ.get('DATABASE_URL', '') else False
     )
 }
 
