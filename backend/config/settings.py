@@ -31,9 +31,14 @@ RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
-NETLIFY_URL = os.environ.get('NETLIFY_URL')
-if NETLIFY_URL:
-    ALLOWED_HOSTS.append(NETLIFY_URL.replace('https://', '').replace('http://', '').strip('/'))
+FRONTEND_URL = os.environ.get('FRONTEND_URL')
+if FRONTEND_URL:
+    ALLOWED_HOSTS.append(FRONTEND_URL.replace('https://', '').replace('http://', '').strip('/'))
+    # Use CORS_ALLOWED_ORIGINS if needed, or keep CORS_ALLOW_ALL_ORIGINS = True as it is now
+
+KOYEB_PUBLIC_DOMAIN = os.environ.get('KOYEB_PUBLIC_DOMAIN')
+if KOYEB_PUBLIC_DOMAIN:
+    ALLOWED_HOSTS.append(KOYEB_PUBLIC_DOMAIN)
 SECRET_KEY = os.environ.get("SECRET_KEY", SECRET_KEY)
 
 # Application definition
